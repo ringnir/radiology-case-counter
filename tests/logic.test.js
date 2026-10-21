@@ -105,6 +105,23 @@ t('tally: dz = distinct slots, range applies',()=>{
   const base=L.TRACKS[0], rows=L.progress(base,t1,L.defaultSettings());
   const dz=rows.find(r=>r.item.id==='dz'); assert.strictEqual(dz.count,2); assert.strictEqual(dz.goal,90); assert.strictEqual(dz.rest,88);
 });
+t('診断・治療専門医: 研修手帳の目標、治療技術の重複カウント',()=>{
+  const by=(tr,id)=>tr.items.find(i=>i.id===id);
+  const D=L.TRACKS.find(x=>x.id==='diag'), R=L.TRACKS.find(x=>x.id==='rt');
+  assert.deepStrictEqual(D.items.map(i=>[i.id,i.goal]),[['xray',400],['gi',40],['us',50],['ct',1500],['mri',1000],['rn',60],['ivr',40],['ivr_v',null],['ivr_n',null]]);
+  assert.deepStrictEqual(R.items.map(i=>[i.id,i.goal]),[['rt',200],['rt_head',30],['rt_chest',30],['rt_abd',30],['rt_msk',null],['tech',30],['t_brachy',5],['t_hp',10],['t_imrt',5],['t_srt',5],['t_special',null]]);
+  const es=[
+    {id:'r1',d:'2025-03-01',c:'rt_abd',n:1,t:'imrt'},{id:'r2',d:'2025-03-02',c:'rt_head',n:1,t:'srt'},{id:'r3',d:'2025-03-03',c:'rt_abd',n:1,t:'brachy'},
+    {id:'r4',d:'2025-03-04',c:'rt_chest',n:2,t:'hp'},{id:'r5',d:'2025-03-05',c:'rt_msk',n:1,t:'special'},{id:'r6',d:'2025-03-06',c:'rt_chest',n:1}];
+  const t=L.tally(es), rows=L.progress(R,t,L.defaultSettings()), g=id=>rows.find(r=>r.item.id===id);
+  assert.strictEqual(g('rt').count,7); assert.strictEqual(g('tech').count,6);          // 部位別と技術は重複して数える
+  assert.strictEqual(g('t_hp').count,4); assert.strictEqual(g('t_imrt').count,1); assert.strictEqual(g('t_srt').count,1);   // 高精度 = 強度変調 + 定位 + 区別なし
+  assert.strictEqual(g('t_brachy').rest,4); assert.strictEqual(g('rt_msk').has,false); assert.strictEqual(g('t_special').has,false);
+  assert.strictEqual(L.sanitizeEntry({d:'2025-03-01',c:'rt_abd',t:'imrt'}).t,'imrt'); assert.strictEqual(L.sanitizeEntry({d:'2025-03-01',c:'ct',t:'imrt'}).t,undefined);
+  const sm=L.sanitizeSummary({n:1,lastD:'2025-03-01',tl:{t_imrt:2,t_srt:1,t_x:3},tr:{rt:{t_imrt:2,t_srt:1}}}); assert.deepStrictEqual(J(sm.tl),{t_imrt:2,t_srt:1}); assert.deepStrictEqual(J(sm.tr.rt),{t_imrt:2,t_srt:1});
+  // 目標のない項目だけの追跡は 0% / 規定なし 扱い
+  const none=L.summarize(L.progress({items:[{id:'a',label:'a',keys:['ct'],goal:null}]},{ct:5},L.defaultSettings())); assert.strictEqual(none.total,0); assert.strictEqual(none.restSum,0);
+});
 t('100枠: numbering, areas, labels, slotMap',()=>{
   assert.strictEqual(L.SLOTS.length,100); assert.deepStrictEqual(L.SLOTS.map(s=>s.no),Array.from({length:100},(_,i)=>i+1));
   const A=L.slotAreas(); assert.strictEqual(A.length,11);

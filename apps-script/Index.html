@@ -443,7 +443,9 @@ em.bad{font-style:normal;font-size:12.5px}
             <label class="fld" id="techWrap"><span>治療技術</span>
               <select id="fTech">
                 <option value="">指定なし</option>
-                <option value="hp">高精度放射線治療</option>
+                <option value="imrt">強度変調放射線治療</option>
+                <option value="srt">定位放射線照射</option>
+                <option value="hp">高精度（強度変調・定位の区別なし）</option>
                 <option value="brachy">密封小線源治療</option>
                 <option value="special">特殊治療</option>
               </select>
@@ -587,7 +589,9 @@ const GROUPS = [
   {id:'rt', label:'放射線治療', hint:'放射線治療の経験とは、第一立案者として治療計画を立案し、指導医の確認を受けた治療を指します（基本領域の定義）。'}
 ];
 const TECHS = [
-  {k:'hp', label:'高精度放射線治療'},
+  {k:'imrt', label:'強度変調放射線治療'},
+  {k:'srt', label:'定位放射線照射'},
+  {k:'hp', label:'高精度放射線治療（強度変調・定位の区別なし）'},
   {k:'brachy', label:'密封小線源治療'},
   {k:'special', label:'特殊治療'}
 ];
@@ -598,8 +602,8 @@ const RT4 = ['rt_head','rt_chest','rt_abd','rt_msk'];
 
 const TRACKS = [
   {
-    id:'base', name:'放射線科専門医', sub:'基本領域', src:'off', srcTag:'公式資料ベース',
-    srcText:'放射線科領域専門研修プログラム整備基準に基づく経験目標（2026年度の研修プログラム資料の記載）。',
+    id:'base', name:'放射線科専門医', sub:'基本領域', src:'off', srcTag:'学会資料に基づく',
+    srcText:'研修手帳の様式（経験症例記録）の各シートの題に書かれた目標症例数と、学会の専門研修プログラム（作成：日本医学放射線学会。2015年12月承認、2023年5月修正版）に示された経験目標です。IVRは血管系10以上・非血管系5以上、放射線治療は4部位それぞれ4以上、疾患・病態は100枠のうち90以上です。',
     items:[
       {id:'xray', label:'X線単純撮影', keys:['xray'], goal:400, grp:'画像診断・読影'},
       {id:'gi', label:'消化管X線検査', keys:['gi'], goal:60},
@@ -618,17 +622,18 @@ const TRACKS = [
       {id:'dz', label:'経験すべき疾患・病態', keys:['dz'], goal:90, grp:'疾患・病態', note:'研修手帳の100枠（11領域）のうち90以上'}
     ],
     checks:[
-      '初期臨床研修を含め5年以上の臨床経験',
-      '日本医学放射線学会の正会員として3年以上',
+      '初期臨床研修期間を含め5年以上の臨床経験（申請時）',
+      '日本医学放射線学会の正会員として3年以上（申請時）',
       '専門研修3年以上（うち1年以上は学会認定の総合修練機関）',
       '研修プログラム管理委員会による研修修了（または仮修了）の判定',
-      '必須講習会・領域講習の受講記録',
-      '学術業績（学会発表・論文）の記録'
+      '研修プログラムが定める講習会の受講記録',
+      '研修プログラムが定める学術業績（学会発表・論文）の記録',
+      '出願期間内に、受験申込（会員専用ページ）と願書類の提出'
     ]
   },
   {
-    id:'diag', name:'診断専門医', sub:'サブスペシャルティ・診断', src:'ref', srcTag:'参考値・要確認',
-    srcText:'琉球大学放射線科の研修案内に記載された必要症例数です（2022〜23年頃の情報とみられ、時点は未確認）。学会の最新基準と照合し、違う場合は設定で目標を編集してください。診断と治療はどちらか一方のみ受験できます。',
+    id:'diag', name:'診断専門医', sub:'サブスペシャルティ・診断', src:'off', srcTag:'学会資料に基づく',
+    srcText:'日本専門医機構「専攻医研修手帳（放射線診断領域）」の経験症例記録（2023年12月付）に書かれた、専門研修が満了するまでの目標症例数です。受験資格は学会の診断専門医試験案内（第3回・2026年4月7日掲載）に基づきます。IVRは合計40例以上で、手技ごとの目標は研修手帳には載っていないため、血管系・非血管系の内訳は未設定にしてあります（血管系・非血管系を合わせて10例までは画像診断のみの検査を含めてよい、とされています）。',
     items:[
       {id:'xray', label:'X線単純撮影', keys:['xray'], goal:400, grp:'画像診断・読影'},
       {id:'gi', label:'消化管X線検査', keys:['gi'], goal:40},
@@ -641,33 +646,40 @@ const TRACKS = [
       {id:'ivr_n', label:'非血管系', keys:['ivr_n'], goal:null, sub:1}
     ],
     checks:[
-      '放射線科専門医の資格を取得済み',
-      '資格取得後、診断領域（画像診断・核医学・IVR）の専門研修を2年以上',
-      '初期臨床研修を含め7年以上の臨床経験',
-      '日本医学放射線学会の正会員として5年以上',
+      '初期臨床研修期間を含め7年以上の臨床経験（申請時）',
+      '日本医学放射線学会の正会員として5年以上（申請時）',
       '研修管理委員会による研修修了（または仮修了）の判定',
-      '学会発表・論文発表の業績'
+      '研修期間中に、学術集会で筆頭演者として発表した記録',
+      '研修期間中に、論文発表（筆頭著者または共著者）の記録',
+      '講習会の受講記録（医療安全・感染対策・医療倫理を各1回以上）',
+      '出願期間内に、受験申込（会員専用ページ）と願書類の提出'
     ]
   },
   {
-    id:'rt', name:'治療専門医', sub:'サブスペシャルティ・治療', src:'ref', srcTag:'参考値・要確認',
-    srcText:'琉球大学放射線科の研修案内に記載された必要症例数です（2022〜23年頃の情報とみられ、時点は未確認）。学会の最新基準と照合し、違う場合は設定で目標を編集してください。診断と治療はどちらか一方のみ受験できます。',
+    id:'rt', name:'治療専門医', sub:'サブスペシャルティ・治療', src:'off', srcTag:'学会資料に基づく',
+    srcText:'日本専門医機構「専攻医研修手帳（放射線治療領域）」の経験症例記録（2023年12月付）に書かれた、専門研修が満了するまでの目標です。部位別の経験症例は合計200例以上（脳・頭頸部、胸部、腹部・骨盤部は各30例以上、四肢・皮膚・その他は設定なし）、治療技術は合計30件以上（密封小線源5件以上、高精度は強度変調5件以上と定位放射線照射5件以上で合計10件以上、特殊治療は設定なし）です。部位別と技術は重複して数えられます。受験資格は学会の治療専門医試験案内（第1回・2024年4月9日掲載）に基づきます。',
     items:[
-      {id:'rt', label:'放射線治療 経験症例（部位別の合計）', keys:RT4, goal:200, grp:'部位別の経験症例'},
-      {id:'rt_head', label:'脳・頭頸部', keys:['rt_head'], goal:30, sub:1},
-      {id:'rt_chest', label:'胸部・乳腺', keys:['rt_chest'], goal:30, sub:1},
-      {id:'rt_abd', label:'腹部・骨盤', keys:['rt_abd'], goal:30, sub:1},
-      {id:'rt_msk', label:'骨軟部・四肢・皮膚・他', keys:['rt_msk'], goal:null, sub:1},
-      {id:'tech', label:'放射線治療技術研修', keys:['t_hp','t_brachy','t_special'], goal:30, grp:'技術研修'},
-      {id:'t_hp', label:'高精度放射線治療', keys:['t_hp'], goal:10, sub:1},
-      {id:'t_brachy', label:'密封小線源治療', keys:['t_brachy'], goal:5, sub:1},
-      {id:'t_special', label:'特殊治療', keys:['t_special'], goal:null, sub:1}
+      {id:'rt', label:'部位別の経験症例（合計）', keys:RT4, goal:200, grp:'部位別の経験症例'},
+      {id:'rt_head', label:'脳・頭頸部（以上）', keys:['rt_head'], goal:30, sub:1},
+      {id:'rt_chest', label:'胸部・乳腺（以上）', keys:['rt_chest'], goal:30, sub:1},
+      {id:'rt_abd', label:'腹部・骨盤（以上）', keys:['rt_abd'], goal:30, sub:1},
+      {id:'rt_msk', label:'四肢・皮膚・その他（設定なし）', keys:['rt_msk'], goal:null, sub:1},
+      {id:'tech', label:'放射線治療技術（合計）', keys:['t_imrt','t_srt','t_hp','t_brachy','t_special'], goal:30, grp:'治療技術'},
+      {id:'t_brachy', label:'密封小線源治療（以上）', keys:['t_brachy'], goal:5, sub:1},
+      {id:'t_hp', label:'高精度放射線治療（強度変調＋定位の合計・以上）', keys:['t_imrt','t_srt','t_hp'], goal:10, sub:1},
+      {id:'t_imrt', label:'　うち強度変調放射線治療（以上）', keys:['t_imrt'], goal:5, sub:1},
+      {id:'t_srt', label:'　うち定位放射線照射（以上）', keys:['t_srt'], goal:5, sub:1},
+      {id:'t_special', label:'特殊治療（設定なし）', keys:['t_special'], goal:null, sub:1}
     ],
     checks:[
-      '放射線科専門医の資格を取得済み',
-      '放射線治療領域の専門研修を修了',
-      '臨床経験年数・学会会員年数の要件を最新の受験要項で確認',
-      '学会発表・論文発表の業績'
+      '日本医学放射線学会と日本放射線腫瘍学会の会員であること',
+      '初期臨床研修期間を含め7年以上の臨床経験（申請時）',
+      '日本医学放射線学会の正会員として5年以上、日本放射線腫瘍学会の正会員として2年以上（申請時）',
+      '研修管理委員会による研修修了（または仮修了）の判定',
+      '研修期間中に、学術集会で筆頭演者として発表した記録',
+      '研修期間中に、論文発表（筆頭著者または共著者）の記録',
+      '講習会の受講記録（医療安全〔放射線防護を含む〕・感染対策・医療倫理を必ず受講）',
+      '出願期間内に、受験申込と願書類の提出'
     ]
   }
 ];
@@ -1253,7 +1265,7 @@ function cleanTally(raw){
   const o = {};
   if (!raw || typeof raw !== 'object') return o;
   Object.keys(raw).forEach(k => {
-    const ok = k === 'dz' || CAT_BY[k] || /^t_(hp|brachy|special)$/.test(k);
+    const ok = k === 'dz' || CAT_BY[k] || /^t_(hp|imrt|srt|brachy|special)$/.test(k);
     const v = raw[k];
     if (ok && typeof v === 'number' && isFinite(v) && v >= 0) o[k] = Math.min(Math.round(v), 99999);
   });
@@ -1883,10 +1895,11 @@ function countdownHtml(tr, sm){
   if (!ex) h += '<p class="cd-none">' + (ro ? '受験予定日は未設定です。' : '受験予定日を入れると、残り日数と、1週間あたりに必要な症例数が表示されます。') + '</p>';
   else if (ex.past) h += '<p class="cd-none">受験予定日（' + esc(ex.date) + '）を過ぎています。' + (ro ? '' : '日付を更新してください。') + '</p>';
   else {
-    h += '<div class="cd-main"><div class="cd-stat"><span class="cd-big">' + (ex.today ? '本日' : fmtN(ex.days)) + '</span><span class="cd-unit">' + (ex.today ? '受験' : '日後（約' + (Math.round(ex.days / 7 * 10) / 10) + '週）') + '</span></div>' +
-      '<div class="cd-stat"><span class="cd-unit">不足</span><span class="cd-big">' + fmtN(sm.restSum) + '</span><span class="cd-unit">症例</span></div>';
-    if (ex.pace) h += '<div class="cd-stat"><span class="cd-unit">必要なペース</span><span class="cd-big">週' + ex.pace.perWeek + '</span><span class="cd-unit">症例（1日あたり' + ex.pace.perDay + '）</span></div>';
-    else if (sm.restSum === 0) h += '<div class="cd-stat"><span class="cd-big ok">達成</span><span class="cd-unit">主要項目はそろっています</span></div>';
+    h += '<div class="cd-main"><div class="cd-stat"><span class="cd-big">' + (ex.today ? '本日' : fmtN(ex.days)) + '</span><span class="cd-unit">' + (ex.today ? '受験' : '日後（約' + (Math.round(ex.days / 7 * 10) / 10) + '週）') + '</span></div>';
+    if (!sm.total) h += '<div class="cd-stat"><span class="cd-unit">症例数の目標が未設定のため、不足は計算していません（「設定」タブで入力できます）</span></div>';
+    else h += '<div class="cd-stat"><span class="cd-unit">不足</span><span class="cd-big">' + fmtN(sm.restSum) + '</span><span class="cd-unit">症例</span></div>';
+    if (sm.total && ex.pace) h += '<div class="cd-stat"><span class="cd-unit">必要なペース</span><span class="cd-big">週' + ex.pace.perWeek + '</span><span class="cd-unit">症例（1日あたり' + ex.pace.perDay + '）</span></div>';
+    else if (sm.total && sm.restSum === 0) h += '<div class="cd-stat"><span class="cd-big ok">達成</span><span class="cd-unit">主要項目はそろっています</span></div>';
     h += '</div>';
   }
   h += '<div class="cd-ev"><h4>予定・イベント</h4>';
@@ -1971,7 +1984,7 @@ function renderProgress(){
   all.forEach(x => {
     h += '<button type="button" class="track" role="tab" data-act="track" data-id="' + x.t.id + '" aria-selected="' + (x.t.id === tr.id) + '">' +
       '<span class="t-name">' + esc(x.t.name) + '</span><span class="t-sub">' + esc(x.t.sub) + '</span>' +
-      '<span class="t-pct">' + x.s.pct + '%</span></button>';
+      '<span class="t-pct">' + (x.s.total ? x.s.pct + '%' : '—') + '</span></button>';
   });
   h += '</div>';
   if (demo) h += '<div class="demo-banner">サンプル表示です。最初の症例を登録すると、実際の件数に切り替わります。</div>';
@@ -1979,8 +1992,9 @@ function renderProgress(){
   h += '<div class="srcnote"><span class="tag ' + tr.src + '">' + esc(tr.srcTag) + '</span><span>' + esc(tr.srcText) + '</span></div>';
   const rg = state.settings.range[tr.id];
   const ex = examState(state.settings, tr.id, cur.s.restSum, todayStr());
-  h += '<p class="sum"><span>達成 <b>' + cur.s.doneN + '</b> / <b>' + cur.s.total + '</b> 項目</span>' +
-    '<span>不足 <b>' + fmtN(cur.s.restSum) + '</b> 件（主要項目の合計）</span>' +
+  h += '<p class="sum">' + (cur.s.total
+    ? '<span>達成 <b>' + cur.s.doneN + '</b> / <b>' + cur.s.total + '</b> 項目</span><span>不足 <b>' + fmtN(cur.s.restSum) + '</b> 件（主要項目の合計）</span>'
+    : '<span>症例数の目標が未設定です。件数は数えます。目標は「設定」タブで入力できます。</span>') +
     (rg && (rg.from || rg.to) ? '<span>集計期間 <b>' + esc(rg.from || '—') + ' 〜 ' + esc(rg.to || '—') + '</b></span>' : '') + '</p>';
   h += '<div class="rows' + (demo ? ' demo' : '') + (state.loaded ? '' : ' loading') + '">';
   cur.rows.forEach(r => {
@@ -2270,6 +2284,7 @@ const ASORT = {
 };
 
 function pctCell(t){
+  if (!t.s.total) return '<td><span class="dim" title="症例数の目標が未設定です">—</span></td>';
   return '<td><div class="pc" title="達成 ' + t.s.doneN + ' / ' + t.s.total + ' 項目"><div class="mini' + (t.s.pct >= 100 ? ' ok' : '') + '"><i style="width:' + t.s.pct + '%"></i></div><b>' + t.s.pct + '%</b></div></td>';
 }
 function renderAOverview(){
@@ -2303,7 +2318,7 @@ function renderAOverview(){
         '<td class="num2' + (m.cohort ? '' : ' dim') + '">' + (m.cohort ? esc(m.cohort + '年度') : '未設定') + '</td>' +
         pctCell(m.tracks[0]) + pctCell(m.tracks[1]) + pctCell(m.tracks[2]) +
         '<td class="num2">' + (nx ? esc(nx.date) + ' <b>あと' + fmtN(nx.days) + '日</b> <span class="dim">' + esc(TRACK_BY[nx.id].name) + '</span>' : '<span class="dim">未設定</span>') + '</td>' +
-        '<td class="num2">' + (nx ? (nx.rest > 0 ? '不足' + fmtN(nx.rest) + '・' + (nx.pace ? '<b>週' + nx.pace.perWeek + '</b>' : '本日') : '<span class="ok-t">達成</span>') : '<span class="dim">—</span>') + '</td>' +
+        '<td class="num2">' + (nx ? (nx.rest == null ? '<span class="dim">目標未設定</span>' : nx.rest > 0 ? '不足' + fmtN(nx.rest) + '・' + (nx.pace ? '<b>週' + nx.pace.perWeek + '</b>' : '本日') : '<span class="ok-t">達成</span>') : '<span class="dim">—</span>') + '</td>' +
         '<td class="r num2">' + fmtN(m.total) + (m.inc ? '<small class="dim" title="年齢・性別が未入力の画像診断症例"> (未入力' + fmtN(m.inc) + ')</small>' : '') + '</td><td class="r num2">' + fmtN(m.dzN) + '</td>' +
         '<td class="num2' + (m.lastD && m.lastD < lim ? ' stale' : '') + (m.lastD ? '' : ' dim') + '">' + esc(m.lastD || '入力なし') + '</td>' +
         '<td class="num2 dim">' + esc(fmtDT(m.upd)) + '</td></tr>';
@@ -2867,7 +2882,7 @@ function prepMember(m) {
   const d = parseDocs(m.docs), st = d.settings, sm = d.summary;
   const tracks = TRACKS.map(t => ({id: t.id, s: summarize(progress(t, sm ? sm.tr[t.id] : {}, st))}));
   const next = nextExam(st);
-  if (next) { const s = tracks.find(x => x.id === next.id).s; next.rest = s.restSum; next.pace = paceOf(s.restSum, next.days); }
+  if (next) { const s = tracks.find(x => x.id === next.id).s; next.rest = s.total ? s.restSum : null; next.pace = s.total ? paceOf(s.restSum, next.days) : null; }
   return {id: m.id, name: m.name, created: m.created, seen: m.seen, upd: m.upd || '', settings: st, cohort: st.cohort, tracks: tracks, next: next, hasSum: !!sm,
     total: sm ? sm.n : 0, dzN: sm ? (sm.tl.dz || 0) : 0, inc: sm ? sm.inc : 0, lastD: sm ? sm.lastD : '', tl: sm ? sm.tl : {}};
 }

@@ -72,7 +72,7 @@ function cleanTally(raw){
   const o = {};
   if (!raw || typeof raw !== 'object') return o;
   Object.keys(raw).forEach(k => {
-    const ok = k === 'dz' || CAT_BY[k] || /^t_(hp|brachy|special)$/.test(k);
+    const ok = k === 'dz' || CAT_BY[k] || /^t_(hp|imrt|srt|brachy|special)$/.test(k);
     const v = raw[k];
     if (ok && typeof v === 'number' && isFinite(v) && v >= 0) o[k] = Math.min(Math.round(v), 99999);
   });

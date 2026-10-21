@@ -162,10 +162,11 @@ function countdownHtml(tr, sm){
   if (!ex) h += '<p class="cd-none">' + (ro ? '受験予定日は未設定です。' : '受験予定日を入れると、残り日数と、1週間あたりに必要な症例数が表示されます。') + '</p>';
   else if (ex.past) h += '<p class="cd-none">受験予定日（' + esc(ex.date) + '）を過ぎています。' + (ro ? '' : '日付を更新してください。') + '</p>';
   else {
-    h += '<div class="cd-main"><div class="cd-stat"><span class="cd-big">' + (ex.today ? '本日' : fmtN(ex.days)) + '</span><span class="cd-unit">' + (ex.today ? '受験' : '日後（約' + (Math.round(ex.days / 7 * 10) / 10) + '週）') + '</span></div>' +
-      '<div class="cd-stat"><span class="cd-unit">不足</span><span class="cd-big">' + fmtN(sm.restSum) + '</span><span class="cd-unit">症例</span></div>';
-    if (ex.pace) h += '<div class="cd-stat"><span class="cd-unit">必要なペース</span><span class="cd-big">週' + ex.pace.perWeek + '</span><span class="cd-unit">症例（1日あたり' + ex.pace.perDay + '）</span></div>';
-    else if (sm.restSum === 0) h += '<div class="cd-stat"><span class="cd-big ok">達成</span><span class="cd-unit">主要項目はそろっています</span></div>';
+    h += '<div class="cd-main"><div class="cd-stat"><span class="cd-big">' + (ex.today ? '本日' : fmtN(ex.days)) + '</span><span class="cd-unit">' + (ex.today ? '受験' : '日後（約' + (Math.round(ex.days / 7 * 10) / 10) + '週）') + '</span></div>';
+    if (!sm.total) h += '<div class="cd-stat"><span class="cd-unit">症例数の目標が未設定のため、不足は計算していません（「設定」タブで入力できます）</span></div>';
+    else h += '<div class="cd-stat"><span class="cd-unit">不足</span><span class="cd-big">' + fmtN(sm.restSum) + '</span><span class="cd-unit">症例</span></div>';
+    if (sm.total && ex.pace) h += '<div class="cd-stat"><span class="cd-unit">必要なペース</span><span class="cd-big">週' + ex.pace.perWeek + '</span><span class="cd-unit">症例（1日あたり' + ex.pace.perDay + '）</span></div>';
+    else if (sm.total && sm.restSum === 0) h += '<div class="cd-stat"><span class="cd-big ok">達成</span><span class="cd-unit">主要項目はそろっています</span></div>';
     h += '</div>';
   }
   h += '<div class="cd-ev"><h4>予定・イベント</h4>';
@@ -250,7 +251,7 @@ function renderProgress(){
   all.forEach(x => {
     h += '<button type="button" class="track" role="tab" data-act="track" data-id="' + x.t.id + '" aria-selected="' + (x.t.id === tr.id) + '">' +
       '<span class="t-name">' + esc(x.t.name) + '</span><span class="t-sub">' + esc(x.t.sub) + '</span>' +
-      '<span class="t-pct">' + x.s.pct + '%</span></button>';
+      '<span class="t-pct">' + (x.s.total ? x.s.pct + '%' : '—') + '</span></button>';
   });
   h += '</div>';
   if (demo) h += '<div class="demo-banner">サンプル表示です。最初の症例を登録すると、実際の件数に切り替わります。</div>';
@@ -258,8 +259,9 @@ function renderProgress(){
   h += '<div class="srcnote"><span class="tag ' + tr.src + '">' + esc(tr.srcTag) + '</span><span>' + esc(tr.srcText) + '</span></div>';
   const rg = state.settings.range[tr.id];
   const ex = examState(state.settings, tr.id, cur.s.restSum, todayStr());
-  h += '<p class="sum"><span>達成 <b>' + cur.s.doneN + '</b> / <b>' + cur.s.total + '</b> 項目</span>' +
-    '<span>不足 <b>' + fmtN(cur.s.restSum) + '</b> 件（主要項目の合計）</span>' +
+  h += '<p class="sum">' + (cur.s.total
+    ? '<span>達成 <b>' + cur.s.doneN + '</b> / <b>' + cur.s.total + '</b> 項目</span><span>不足 <b>' + fmtN(cur.s.restSum) + '</b> 件（主要項目の合計）</span>'
+    : '<span>症例数の目標が未設定です。件数は数えます。目標は「設定」タブで入力できます。</span>') +
     (rg && (rg.from || rg.to) ? '<span>集計期間 <b>' + esc(rg.from || '—') + ' 〜 ' + esc(rg.to || '—') + '</b></span>' : '') + '</p>';
   h += '<div class="rows' + (demo ? ' demo' : '') + (state.loaded ? '' : ' loading') + '">';
   cur.rows.forEach(r => {
@@ -549,6 +551,7 @@ const ASORT = {
 };
 
 function pctCell(t){
+  if (!t.s.total) return '<td><span class="dim" title="症例数の目標が未設定です">—</span></td>';
   return '<td><div class="pc" title="達成 ' + t.s.doneN + ' / ' + t.s.total + ' 項目"><div class="mini' + (t.s.pct >= 100 ? ' ok' : '') + '"><i style="width:' + t.s.pct + '%"></i></div><b>' + t.s.pct + '%</b></div></td>';
 }
 function renderAOverview(){
@@ -582,7 +585,7 @@ function renderAOverview(){
         '<td class="num2' + (m.cohort ? '' : ' dim') + '">' + (m.cohort ? esc(m.cohort + '年度') : '未設定') + '</td>' +
         pctCell(m.tracks[0]) + pctCell(m.tracks[1]) + pctCell(m.tracks[2]) +
         '<td class="num2">' + (nx ? esc(nx.date) + ' <b>あと' + fmtN(nx.days) + '日</b> <span class="dim">' + esc(TRACK_BY[nx.id].name) + '</span>' : '<span class="dim">未設定</span>') + '</td>' +
-        '<td class="num2">' + (nx ? (nx.rest > 0 ? '不足' + fmtN(nx.rest) + '・' + (nx.pace ? '<b>週' + nx.pace.perWeek + '</b>' : '本日') : '<span class="ok-t">達成</span>') : '<span class="dim">—</span>') + '</td>' +
+        '<td class="num2">' + (nx ? (nx.rest == null ? '<span class="dim">目標未設定</span>' : nx.rest > 0 ? '不足' + fmtN(nx.rest) + '・' + (nx.pace ? '<b>週' + nx.pace.perWeek + '</b>' : '本日') : '<span class="ok-t">達成</span>') : '<span class="dim">—</span>') + '</td>' +
         '<td class="r num2">' + fmtN(m.total) + (m.inc ? '<small class="dim" title="年齢・性別が未入力の画像診断症例"> (未入力' + fmtN(m.inc) + ')</small>' : '') + '</td><td class="r num2">' + fmtN(m.dzN) + '</td>' +
         '<td class="num2' + (m.lastD && m.lastD < lim ? ' stale' : '') + (m.lastD ? '' : ' dim') + '">' + esc(m.lastD || '入力なし') + '</td>' +
         '<td class="num2 dim">' + esc(fmtDT(m.upd)) + '</td></tr>';

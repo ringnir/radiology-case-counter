@@ -489,7 +489,7 @@ function prepMember(m) {
   const d = parseDocs(m.docs), st = d.settings, sm = d.summary;
   const tracks = TRACKS.map(t => ({id: t.id, s: summarize(progress(t, sm ? sm.tr[t.id] : {}, st))}));
   const next = nextExam(st);
-  if (next) { const s = tracks.find(x => x.id === next.id).s; next.rest = s.restSum; next.pace = paceOf(s.restSum, next.days); }
+  if (next) { const s = tracks.find(x => x.id === next.id).s; next.rest = s.total ? s.restSum : null; next.pace = s.total ? paceOf(s.restSum, next.days) : null; }
   return {id: m.id, name: m.name, created: m.created, seen: m.seen, upd: m.upd || '', settings: st, cohort: st.cohort, tracks: tracks, next: next, hasSum: !!sm,
     total: sm ? sm.n : 0, dzN: sm ? (sm.tl.dz || 0) : 0, inc: sm ? sm.inc : 0, lastD: sm ? sm.lastD : '', tl: sm ? sm.tl : {}};
 }
