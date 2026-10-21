@@ -195,7 +195,7 @@ async function fillCase(page, o) {
   /* ---- 設定（施設・氏名） ---- */
   await step('settings: facility validation (9-digit code), default names; persisted', async () => {
     await a.click('[data-view="settings"]');
-    await a.fill('#facName', '琉大病院'); await a.fill('#facCode', '12345');
+    await a.fill('#facName', 'テスト病院'); await a.fill('#facCode', '12345');
     await a.click('#facForm button');
     await a.waitForFunction(() => document.querySelector('#facMsg').textContent.trim().length > 0);
     assert.strictEqual(settingsOf('山田 太郎').facs.length, 0);
@@ -207,7 +207,7 @@ async function fillCase(page, o) {
     await a.locator('#v-settings input[data-act="sv"]').blur();
     await waitSaved(a);
     const st = settingsOf('山田 太郎');
-    assert.deepStrictEqual(st.facs, [{ n: '琉大病院', c: '012345678' }, { n: '○○病院', c: '987654321' }]);
+    assert.deepStrictEqual(st.facs, [{ n: 'テスト病院', c: '012345678' }, { n: '○○病院', c: '987654321' }]);
     assert.strictEqual(st.me, '専攻 太郎'); assert.strictEqual(st.sv, '指導 花子');
   });
 
@@ -362,7 +362,7 @@ async function fillCase(page, o) {
     assert.strictEqual(r1b[1], '○○病院');
     const r2 = ct.find(r => /肺炎/.test(r[9] || ''));                                                  // 取り込み分は施設未入力 → 設定の先頭施設・既定の氏名
     assert.ok(r2, JSON.stringify(ct.slice(0, 4)));
-    assert.deepStrictEqual([r2[1], r2[2], r2[4], r2[5], r2[6], r2[10], r2[11]], ['琉大病院', '012345678', 45, 'M', '胸部', '専攻 太郎', '指導 花子']);
+    assert.deepStrictEqual([r2[1], r2[2], r2[4], r2[5], r2[6], r2[10], r2[11]], ['テスト病院', '012345678', 45, 'M', '胸部', '専攻 太郎', '指導 花子']);
     assert.ok(ct.some(r => r[4] === 70) || d.sheets[ST.MRI].length > 0);
     // 疾患（A）シート: 枠64・12・30
     const A_ = d.sheets[ST.A];
@@ -656,9 +656,9 @@ async function fillCase(page, o) {
     // --- 設定: 氏名・指導医・施設（施設番号つき）
     await t.click('[data-view="settings"]');
     await t.fill('#v-settings input[data-act="me"]', '専攻 太郎'); await t.fill('#v-settings input[data-act="sv"]', '指導 花子');
-    await t.fill('#facName', '琉大病院'); await t.fill('#facCode', '012345678'); await t.fill('#facNo', '総－１２');
+    await t.fill('#facName', 'テスト病院'); await t.fill('#facCode', '012345678'); await t.fill('#facNo', '総－１２');
     await t.click('#facForm button');
-    assert.match(await txt(t, '.faclist'), /琉大病院[\s\S]*012345678[\s\S]*番号 総-12/);
+    assert.match(await txt(t, '.faclist'), /テスト病院[\s\S]*012345678[\s\S]*番号 総-12/);
     // --- 診断の症例（CT・IVR）と、治療の症例（詳細つき）を登録
     await t.click('[data-view="progress"]').catch(() => {});
     await fillCase(t, { date: '2026-04-03', cat: 'ct', age: 67, sex: 'M', part: '胸腹部', kind: '造影', req: '肝腫瘤精査', dz: '肝細胞癌' });

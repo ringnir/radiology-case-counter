@@ -89,10 +89,10 @@ t('sanitizeEntry: per-case fields, group-specific, bounds',()=>{
 t('sanitizeSettings: cohort/exams/events/facilities; old dzl ignored; roundtrip',()=>{
   const s=L.sanitizeSettings({cohort:'2024',exams:{base:'2027-02-14',diag:'bad',zzz:'2027-01-01'},
     ev:[{d:'2026-11-01',t:'学会'},{d:'2026-09-01',t:' 講習会 '},{d:'bad',t:'x'},{d:'2026-10-01',t:''},null],
-    facs:[{n:'琉大病院',c:'０１２３４５６７８'},{n:'琉大病院',c:'1'},{n:'B病院',c:'12'},{n:'',c:'123456789'}],me:' 山田 ',sv:'佐藤',dzl:[{g:'a',items:['x']}]});
+    facs:[{n:'テスト病院',c:'０１２３４５６７８'},{n:'テスト病院',c:'1'},{n:'B病院',c:'12'},{n:'',c:'123456789'}],me:' 山田 ',sv:'佐藤',dzl:[{g:'a',items:['x']}]});
   assert.strictEqual(s.cohort,2024); assert.deepStrictEqual(J(s.exams),{base:'2027-02-14'});
   assert.deepStrictEqual(J(s.ev),[{d:'2026-09-01',t:'講習会'},{d:'2026-11-01',t:'学会'}]);
-  assert.deepStrictEqual(J(s.facs),[{n:'琉大病院',c:'012345678'},{n:'B病院',c:''}]);
+  assert.deepStrictEqual(J(s.facs),[{n:'テスト病院',c:'012345678'},{n:'B病院',c:''}]);
   assert.strictEqual(s.me,'山田'); assert.strictEqual(s.dzl,undefined);
   assert.deepStrictEqual(J(L.sanitizeSettings(J(s))),J(s));
   const d=L.sanitizeSettings(null); assert.strictEqual(d.cohort,0); assert.strictEqual(d.imp,null); assert.deepStrictEqual(J(d.facs),[]);
@@ -178,10 +178,10 @@ t('buildCaseImport: per-case fields, privacy, scrub, deterministic ids',()=>{
   assert.deepStrictEqual(J(r.items[3]),{d:'2025-04-05',c:'ivr_v',a:60,x:'F',z:'肝細胞癌'});
   assert.deepStrictEqual(J(r.items[4]),{d:'2025-04-06',c:'rt_chest',a:70,x:'M',z:'前立腺癌'});
   assert.ok(!JSON.stringify(r.items).match(/111|1980|山田|田中/),'ID・生年月日・氏名は取り込まれない');
-  const es=L.caseImportEntries(r.items,'琉大病院');
+  const es=L.caseImportEntries(r.items,'テスト病院');
   assert.strictEqual(es.length,5); assert.strictEqual(new Set(es.map(e=>e.id)).size,5,'同内容の2行も別ID');
-  es.forEach(e=>{ assert.ok(L.sanitizeEntry(e),JSON.stringify(e)); assert.ok(/^imc[A-Za-z0-9]+-[0-9a-z]+$/.test(e.id)); assert.ok(L.isImpId(e.id)); assert.strictEqual(e.s,'琉大病院'); });
-  const es2=L.caseImportEntries(L.buildCaseImport(GRID,o).items,'琉大病院'); assert.deepStrictEqual(es.map(e=>e.id),es2.map(e=>e.id),'同じファイルは同じID');
+  es.forEach(e=>{ assert.ok(L.sanitizeEntry(e),JSON.stringify(e)); assert.ok(/^imc[A-Za-z0-9]+-[0-9a-z]+$/.test(e.id)); assert.ok(L.isImpId(e.id)); assert.strictEqual(e.s,'テスト病院'); });
+  const es2=L.caseImportEntries(L.buildCaseImport(GRID,o).items,'テスト病院'); assert.deepStrictEqual(es.map(e=>e.id),es2.map(e=>e.id),'同じファイルは同じID');
   const o2=Object.assign({},o,{from:'2025-04-04'}); assert.strictEqual(L.buildCaseImport(GRID,o2).stat.ok,3);
   const noDetail=L.buildCaseImport(GRID,{hdr:0,cols:{date:1,cat:2,cat2:-1,age:-1,sex:-1,part:-1,kind:-1,req:-1,diag:-1,proc:-1,sv:-1},vals:o.vals,from:'',to:''});
   assert.deepStrictEqual(J(noDetail.items[0]),{d:'2025-04-03',c:'ct'});
@@ -198,7 +198,7 @@ t('makeSummary / sanitizeSummary',()=>{
   const bad=L.sanitizeSummary({n:'a',lastD:'zz',tl:{ct:5,evil:9,dz:2,t_hp:1,t_x:3},tr:{base:{ct:-1,mri:2}}});
   assert.deepStrictEqual(J(bad.tl),{ct:5,dz:2,t_hp:1}); assert.deepStrictEqual(J(bad.tr.base),{mri:2}); assert.strictEqual(bad.n,0); assert.strictEqual(bad.lastD,'');
 });
-const ST=L.sanitizeSettings({facs:[{n:'琉大病院',c:'012345678'}],me:'専攻 太郎',sv:'指導 花子'});
+const ST=L.sanitizeSettings({facs:[{n:'テスト病院',c:'012345678'}],me:'専攻 太郎',sv:'指導 花子'});
 t('buildTemplateData: B/A/IVR/RT cell maps',()=>{
   const es=[
     {id:'e2',d:'2025-04-02',c:'ct',n:1,a:60,x:'F',p:'胸部',q:'造影',r:'依頼',z:'肺癌',k:23},
@@ -210,14 +210,14 @@ t('buildTemplateData: B/A/IVR/RT cell maps',()=>{
     {id:'r2',d:'2025-04-07',c:'rt_head',n:1,z:'脳転移'}];
   const D=L.buildTemplateData(es,ST), S=D.sheets;
   // CT: e1(No.1), e2(No.2), e4×3 (No.3-5). 枠23 → CT No.2
-  assert.deepStrictEqual(J(S.ct[6]),{B:'琉大病院',C:'012345678',D:L.dateSerial('2025-04-01'),E:50,F:'M',K:'専攻 太郎',L:'指導 花子'});
-  assert.deepStrictEqual(J(S.ct[7]),{B:'琉大病院',C:'012345678',D:45749,E:60,F:'F',G:'胸部',H:'造影',I:'依頼',J:'肺癌',K:'専攻 太郎',L:'指導 花子'});
+  assert.deepStrictEqual(J(S.ct[6]),{B:'テスト病院',C:'012345678',D:L.dateSerial('2025-04-01'),E:50,F:'M',K:'専攻 太郎',L:'指導 花子'});
+  assert.deepStrictEqual(J(S.ct[7]),{B:'テスト病院',C:'012345678',D:45749,E:60,F:'F',G:'胸部',H:'造影',I:'依頼',J:'肺癌',K:'専攻 太郎',L:'指導 花子'});
   assert.strictEqual(L.dateSerial('2025-04-01'),45748); assert.strictEqual(L.dateSerial('2025-04-02'),45749);
   assert.strictEqual(Object.keys(S.ct).length,5); assert.strictEqual(S.ct[10].E,undefined);
-  const a23=S.a[L.SLOTS[22].row]; assert.deepStrictEqual(J(a23),{D:'琉大病院',E:'012345678',F:L.dateSerial('2025-04-02'),G:60,H:'F',I:'肺癌',J:'CT',K:2});
+  const a23=S.a[L.SLOTS[22].row]; assert.deepStrictEqual(J(a23),{D:'テスト病院',E:'012345678',F:L.dateSerial('2025-04-02'),G:60,H:'F',I:'肺癌',J:'CT',K:2});
   const a6=S.a[L.SLOTS[5].row]; assert.strictEqual(a6.J,'MRI'); assert.strictEqual(a6.K,1); assert.strictEqual(a6.I,'脳梗塞');
   assert.strictEqual(S.mri[6].L,'別の指導医');
-  assert.deepStrictEqual(J(S.ivr[6]),{B:'琉大病院',C:'012345678',D:L.dateSerial('2025-04-05'),E:70,F:'M',G:'膿瘍',H:'ドレナージ',I:'非血管系',J:'○',K:'専攻 太郎',L:'術',M:'指導 花子'});
+  assert.deepStrictEqual(J(S.ivr[6]),{B:'テスト病院',C:'012345678',D:L.dateSerial('2025-04-05'),E:70,F:'M',G:'膿瘍',H:'ドレナージ',I:'非血管系',J:'○',K:'専攻 太郎',L:'術',M:'指導 花子'});
   assert.strictEqual(S.rt[6+8].G,'前立腺癌'); assert.strictEqual(S.rt[6+8].I,'外部照射'); assert.strictEqual(S.rt[6].G,'脳転移'); assert.strictEqual(S.rt[6].H,undefined);
   const R=D.report;
   assert.strictEqual(R.slots,2); assert.strictEqual(R.counts.ct,5); assert.strictEqual(R.counts.ivr,1); assert.strictEqual(R.counts.rt,2); assert.strictEqual(R.expanded,2);
