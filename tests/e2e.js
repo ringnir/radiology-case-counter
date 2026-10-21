@@ -1,7 +1,7 @@
 const fs = require('fs'), path = require('path'), assert = require('assert'), cp = require('child_process');
 const L = require('./e2e-lib.js');
 const { chromium } = require('playwright-core');
-const { env, step, newPage, txt, shot, login, waitSaved, errs, DIR, OUT, XLSX, EMBEDDED, TPL, HAS_TPL, CAN_TPL, ensureTpl } = L;
+const { env, step, newPage, txt, shot, login, waitSaved, errs, DIR, OUT, XLSX, EMBEDDED, TPL, HAS_TPL, CAN_TPL, TPL_DIAG, TPL_RT, HAS_DIAG, HAS_RT, ensureTpl } = L;
 
 /* ---- サーバー側の状態を管理者APIで読む補助 ---- */
 const admTok = () => env.call('api_adminLogin', 'adminpass1').token;
@@ -81,7 +81,7 @@ async function fillCase(page, o) {
   await step('add a case with age/sex/part/kind/request/diagnosis/slot → server has it + a summary doc', async () => {
     assert.ok(await a.isVisible('.demo-banner'));
     await fillCase(a, { date: '2026-04-03', cat: 'ct', age: 67, sex: 'M', part: '胸腹部', kind: '造影', req: '肝腫瘤精査', dz: '肝細胞癌', slot: 64 });
-    await a.click('.moredet summary');
+    await a.click('#moreDet summary');
     await a.fill('#fSite', '○○病院'); await a.fill('#fF1', '専攻 太郎'); await a.fill('#fF2', '指導 花子');
     await a.click('#btnSave');
     await a.waitForFunction(() => !document.querySelector('.demo-banner'));
@@ -290,7 +290,7 @@ async function fillCase(page, o) {
     assert.match(await txt(t, '#tplFile'), /最初に、研修手帳の様式ファイルを選んでください[\s\S]*様式ファイルは含まれていません/);
     assert.ok(await t.locator('.tplfile.need').count() === 1);
     // 様式なしで出力しようとすると案内が出て、ダウンロードは起きない
-    await t.click('#v-export [data-act="tpl"]');
+    await t.click('#v-export [data-act="tpl"][data-k="base"]');
     assert.match(await txt(t, '#toast'), /先に、研修手帳の様式ファイル/);
     assert.strictEqual(await t.evaluate(() => window.__dlNames.length), 0);
     const bad = async (file, re, label) => {
@@ -312,7 +312,7 @@ async function fillCase(page, o) {
     await t.setInputFiles('#fTpl', TPL);
     await t.waitForSelector('.tplfile:not(.need)');
     const nm = path.basename(TPL);
-    assert.match(await txt(t, '#tplFile'), new RegExp('使用する様式: ' + nm.replace(/\./g, '\\.')));
+    assert.match(await txt(t, '#tplFile'), new RegExp('使用する様式:\\s*' + nm.replace(/\./g, '\\.')));
     assert.match(await txt(t, '#tplFile'), /このブラウザに保存済み/);
     assert.ok(await t.locator('#tplFile .msgline.bad').count() === 0);
     await shot(t, '06a-template-file');
@@ -348,7 +348,7 @@ async function fillCase(page, o) {
     await shot(a, '06-export');
     if (!CAN_TPL) { console.log('     （様式ファイルがないため、様式への書き込みの試験は省略: TPL_XLSX を指定してください）'); return; }
     await ensureTpl(a);
-    const [dl] = await Promise.all([a.waitForEvent('download'), a.click('#v-export [data-act="tpl"]')]);
+    const [dl] = await Promise.all([a.waitForEvent('download'), a.click('#v-export [data-act="tpl"][data-k="base"]')]);
     assert.match(await a.evaluate(() => window.__dlNames.slice(-1)[0]), /^研修手帳_山田_太郎_\d{4}-\d{2}-\d{2}\.xlsx$/);
     const out = path.join(OUT, 'out-e2e-a.xlsx'); await dl.saveAs(out);
     const d = dumpTpl(out);
@@ -381,7 +381,7 @@ async function fillCase(page, o) {
     const w = XLSX.readFile(await d1.path());
     assert.deepStrictEqual(w.SheetNames, ['集計', '症例一覧']);
     const ls = XLSX.utils.sheet_to_json(w.Sheets['症例一覧'], { header: 1 });
-    assert.ok(ls[0].includes('年齢') && ls[0].includes('性別') && ls[0].includes('疾患群の枠'), ls[0].join(','));
+    assert.ok(ls[0].includes('年齢') && ls[0].includes('性別') && ls[0].includes('疾患群の枠') && ls[0].includes('治療種別') && ls[0].includes('照射回数') && ls[0].includes('全照射量(Gy)'), ls[0].join(','));
     const sm = XLSX.utils.sheet_to_json(w.Sheets['集計'], { header: 1 }).flat().join('|');
     assert.match(sm, /入学年度\|2025年度/); assert.match(sm, /受験予定日/);
     const [d2] = await Promise.all([a.waitForEvent('download'), a.click('#v-export [data-act="csv"]')]);
@@ -537,7 +537,7 @@ async function fillCase(page, o) {
     assert.match(await txt(c, '#dzGroups'), /まだ症例が割り当てられていません/);
     if (CAN_TPL) {
       await ensureTpl(c);
-      const [dl] = await Promise.all([c.waitForEvent('download'), c.click('#drill [data-act="tpl"]')]);
+      const [dl] = await Promise.all([c.waitForEvent('download'), c.click('#drill [data-act="tpl"][data-k="base"]')]);
       assert.match(await c.evaluate(() => window.__dlNames.slice(-1)[0]), /^研修手帳_山田_太郎_\d{4}-\d{2}-\d{2}\.xlsx$/);
       const out = path.join(OUT, 'out-e2e-admin.xlsx'); await dl.saveAs(out);
       const d = dumpTpl(out);
@@ -642,6 +642,112 @@ async function fillCase(page, o) {
     assert.match(await txt(a, '#v-progress'), /100\s*日後/);
   });
 
+  /* ---- 診断専門医・治療専門医の専攻医研修手帳 ---- */
+  const cellsOf = (file, sheet) => {
+    const wb = XLSX.readFile(file, { cellNF: true });
+    const key = wb.SheetNames.find(n => n.replace(/\s/g, '') === sheet.replace(/\s/g, '')); assert.ok(key, 'sheet ' + sheet + ' in ' + wb.SheetNames.join('|'));
+    return wb.Sheets[key];
+  };
+  const val = (ws, a) => ws[a] && ws[a].v;
+  if (!(HAS_DIAG && HAS_RT)) console.log('     （診断・治療の手帳がないため、診断・治療の様式出力の試験は省略: TPL_DIAG / TPL_RT を指定してください）');
+  if (HAS_DIAG && HAS_RT) await step('notebooks: diag & therapy notebooks are auto-detected, kept per kind, and each exports to its own file', async () => {
+    const T = await newPage(browser, { local: true }); const t = T.page;
+    await t.waitForSelector('#appmain:not([hidden])');
+    // --- 設定: 氏名・指導医・施設（施設番号つき）
+    await t.click('[data-view="settings"]');
+    await t.fill('#v-settings input[data-act="me"]', '専攻 太郎'); await t.fill('#v-settings input[data-act="sv"]', '指導 花子');
+    await t.fill('#facName', '琉大病院'); await t.fill('#facCode', '012345678'); await t.fill('#facNo', '総－１２');
+    await t.click('#facForm button');
+    assert.match(await txt(t, '.faclist'), /琉大病院[\s\S]*012345678[\s\S]*番号 総-12/);
+    // --- 診断の症例（CT・IVR）と、治療の症例（詳細つき）を登録
+    await t.click('[data-view="progress"]').catch(() => {});
+    await fillCase(t, { date: '2026-04-03', cat: 'ct', age: 67, sex: 'M', part: '胸腹部', kind: '造影', req: '肝腫瘤精査', dz: '肝細胞癌' });
+    await t.click('#btnSave'); await t.waitForFunction(() => !document.querySelector('.demo-banner'));
+    await fillCase(t, { date: '2026-04-05', cat: 'ct', age: 50, sex: 'F', part: '胸部', dz: '肺炎' });
+    await t.click('#btnSave');
+    await fillCase(t, { date: '2026-04-06', cat: 'ivr_v', age: 70, sex: 'M', dz: '肝癌' });
+    await t.click('#btnSave');
+    // 治療: 腹部・骨盤、強度変調
+    await t.click('.chip[data-cat="rt_abd"]');
+    await t.fill('#fDate', '2026-04-10'); await t.fill('#fAge', '72'); await t.selectOption('#fSex', 'M'); await t.fill('#fDz', '前立腺癌');
+    await t.selectOption('#fTech', 'imrt');
+    await t.evaluate(() => { document.getElementById('rtDet').open = true; });
+    await t.fill('#fU', '泌尿器科'); await t.fill('#fRtSite', '骨盤部'); await t.selectOption('#fPu', '根治');
+    await t.fill('#fDs', '2'); await t.fill('#fFx', '30'); await t.fill('#fD2', '2026-06'); await t.fill('#fAe', '軽度の排尿障害');
+    assert.ok(await t.locator('#nuWrap').isHidden(), '核種は小線源のときだけ');
+    await t.click('#btnSave');
+    // 治療: 胸部、小線源（術/助・核種）
+    await t.click('.chip[data-cat="rt_chest"]');
+    await t.fill('#fDate', '2026-04-12'); await t.fill('#fAge', '55'); await t.selectOption('#fSex', 'F'); await t.fill('#fDz', '食道癌');
+    await t.selectOption('#fTech', 'brachy');
+    assert.ok(await t.locator('#nuWrap').isVisible() && await t.locator('#roleRtWrap').isVisible(), '小線源では核種と術/助が出る');
+    await t.selectOption('#fRoleRt', '助'); await t.fill('#fNu', '192-Ir'); await t.selectOption('#fPu', '根治');
+    await t.fill('#fDs', '6'); await t.fill('#fFx', '4');
+    await t.click('#btnSave');
+    await waitSaved(t).catch(() => {});
+    // --- 出力タブ: 3種類のブロック。診断の手帳がなければ案内して、ダウンロードは起きない
+    await t.click('[data-view="export"]');
+    assert.strictEqual(await t.locator('#tplInfo .tplkind').count(), 3);
+    assert.match(await txt(t, '#tplInfo [data-kind="diag"]'), /CT[\s\S]*2[\s\S]*IVR[\s\S]*1/);
+    assert.match(await txt(t, '#tplInfo [data-kind="rt"]'), /腹部・骨盤部[\s\S]*1[\s\S]*密封小線源[\s\S]*1/);
+    await t.click('#tplInfo [data-act="tpl"][data-k="diag"]');
+    assert.match(await txt(t, '#toast'), /先に、研修手帳の様式ファイル/);
+    assert.strictEqual(await t.evaluate(() => window.__dlNames.length), 0);
+    // --- 種類が違う手帳でも、中身で自動判別して別々に保存する
+    await t.setInputFiles('#fTpl', TPL_RT); await t.waitForSelector('[data-act="tplforget"][data-k="rt"]');
+    assert.ok(await t.locator('[data-act="tplforget"][data-k="diag"]').count() === 0);
+    await t.setInputFiles('#fTpl', TPL_DIAG); await t.waitForSelector('[data-act="tplforget"][data-k="diag"]');
+    assert.ok(await t.locator('[data-act="tplforget"][data-k="rt"]').count() === 1);
+    assert.match(await txt(t, '#tplFile'), new RegExp(path.basename(TPL_DIAG).replace(/\./g, '\\.')));
+    assert.match(await txt(t, '#tplFile'), new RegExp(path.basename(TPL_RT).replace(/\./g, '\\.')));
+    assert.ok(await t.locator('#tplFile .msgline.bad').count() === 0);
+    await shot(t, '06b-notebooks');
+    // --- 診断専門医の手帳に出力
+    const [d1] = await Promise.all([t.waitForEvent('download'), t.click('#tplInfo [data-act="tpl"][data-k="diag"]')]);
+    assert.match(await t.evaluate(() => window.__dlNames.slice(-1)[0]), /^研修手帳診断_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const outD = path.join(OUT, 'out-e2e-diag.xlsx'); await d1.saveAs(outD);
+    const ct = cellsOf(outD, '形成評価（Ⅳ.経験B.CT）');
+    assert.deepStrictEqual(['A6', 'B6', 'C6', 'D6', 'E6', 'F6', 'G6', 'H6', 'I6', 'J6', 'K6'].map(a => val(ct, a)), [1, '総-12', '20260403', 67, 'M', '胸腹部', '造影', '肝腫瘤精査', '肝細胞癌', '専攻 太郎', '指導 花子']);
+    assert.strictEqual(val(ct, 'C7'), '20260405'); assert.strictEqual(val(ct, 'I7'), '肺炎');
+    const ivr = cellsOf(outD, '形成評価（Ⅳ.経験 C.IVR）');
+    assert.strictEqual(val(ivr, 'F6'), '肝癌'); assert.strictEqual(val(ivr, 'I6'), undefined, '診断のみでなければ印は付かない'); assert.strictEqual(val(ivr, 'H6'), '血管系');
+    // 治療の症例は診断の手帳に出ない
+    assert.ok(!JSON.stringify(XLSX.utils.sheet_to_json(ct, { header: 1 })).includes('前立腺癌'));
+    // --- 治療専門医の手帳に出力
+    const [d2] = await Promise.all([t.waitForEvent('download'), t.click('#tplInfo [data-act="tpl"][data-k="rt"]')]);
+    assert.match(await t.evaluate(() => window.__dlNames.slice(-1)[0]), /^研修手帳治療_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const outR = path.join(OUT, 'out-e2e-rt.xlsx'); await d2.saveAs(outR);
+    const abd = cellsOf(outR, '☆形成評価（Ⅳ.経験症例 A.部位-腹部 骨盤部）');
+    assert.deepStrictEqual(['B7', 'C7', 'D7', 'E7', 'F7', 'G7', 'H7', 'I7', 'J7', 'K7', 'L7', 'O7', 'P7', 'S7'].map(a => val(abd, a)),
+      ['総-12', 72, 'M', '泌尿器科', '前立腺癌', '骨盤部', 'IMRT', '根治', '2 Gy', '30回', '60 Gy', '軽度の排尿障害', '専攻 太郎', '指導 花子']);
+    assert.match(abd.M7.z || '', /yyyy/);
+    const imrt = cellsOf(outR, '☆形成評価（Ⅳ.治療技術 B.技術-高精度治療-強度変調）');
+    assert.strictEqual(val(imrt, 'F6'), '前立腺癌'); assert.strictEqual(val(imrt, 'N6'), '専攻 太郎');
+    const bra = cellsOf(outR, '☆形成評価（Ⅳ.治療技術 B.技術-密封小線源）');
+    assert.strictEqual(val(bra, 'I7'), '192-Ir'); assert.strictEqual(val(bra, 'O7'), '（助）'); assert.strictEqual(val(bra, 'K7'), '24 Gy'); assert.strictEqual(val(bra, 'H7'), '根治');
+    const chest = cellsOf(outR, '☆形成評価（Ⅳ.経験症例 A.部位-胸部）');
+    assert.strictEqual(val(chest, 'H7'), '密封小線源治療'); assert.strictEqual(val(chest, 'L7'), '24 Gy');                 // 全照射量は 6 Gy × 4回
+    // --- 編集で詳細が戻る（往復）
+    await t.click('[data-view="log"]');
+    await t.locator('#logList [data-act="edit"]').first().click();
+    const ed = await t.evaluate(() => ['fTech', 'fPu', 'fDs', 'fFx', 'fNu', 'fRoleRt'].map(i => document.getElementById(i).value));
+    assert.deepStrictEqual(ed, ['brachy', '根治', '6', '4', '192-Ir', '助']);
+    // --- 保存した手帳を種類ごとに削除できる。開き直しても残る / 削除したものは戻らない
+    await t.reload(); await t.waitForSelector('#appmain:not([hidden])'); await t.click('[data-view="export"]');
+    await t.waitForSelector('[data-act="tplforget"][data-k="rt"]');
+    assert.ok(await t.locator('[data-act="tplforget"][data-k="diag"]').count() === 1);
+    await t.click('[data-act="tplforget"][data-k="rt"]');
+    await t.waitForFunction(() => !document.querySelector('[data-act="tplforget"][data-k="rt"]'));
+    await t.reload(); await t.waitForSelector('#appmain:not([hidden])'); await t.click('[data-view="export"]');
+    await t.waitForSelector('[data-act="tplforget"][data-k="diag"]');
+    assert.ok(await t.locator('[data-act="tplforget"][data-k="rt"]').count() === 0);
+    // --- 間違った種類の手帳を選んでも、壊さずに内容で判別する（診断の手帳を選び直しても治療には入らない）
+    await t.setInputFiles('#fTpl', TPL_DIAG); await t.waitForTimeout(300);
+    assert.ok(await t.locator('[data-act="tplforget"][data-k="rt"]').count() === 0);
+    await shot(t, '06c-notebooks-export');
+    await T.ctx.close();
+  });
+
   /* ---- ローカル（サーバーなし） ---- */
   await step('local mode (no server): per-case entry, slot, template export, localStorage', async () => {
     const Lc = await newPage(browser, { local: true }); const l = Lc.page;
@@ -654,7 +760,7 @@ async function fillCase(page, o) {
     await l.click('[data-view="export"]');
     if (CAN_TPL) {
       await ensureTpl(l);
-      const [dl] = await Promise.all([l.waitForEvent('download'), l.click('#v-export [data-act="tpl"]')]);
+      const [dl] = await Promise.all([l.waitForEvent('download'), l.click('#v-export [data-act="tpl"][data-k="base"]')]);
       const out = path.join(OUT, 'out-e2e-local.xlsx'); await dl.saveAs(out);
       const d = dumpTpl(out);
       assert.ok(d.sheets[ST.A].some(r => r[2] === 50 && r[8] === '肺癌' && r[6] === 40));

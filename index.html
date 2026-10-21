@@ -326,6 +326,12 @@ em.bad{font-style:normal;font-size:12.5px}
 .tplcard p{font-size:13px;color:var(--fg-2)}
 .tplcard .btn{justify-self:start}
 .tplcard .itable{max-width:460px}
+.tplrow{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.tplrow .kn{font-size:11.5px;color:var(--fg-2);border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+.tplkind{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
+.tplkind h4{font-size:14px;font-weight:600}
+.tplkind h4 .dim{font-weight:400;font-size:12px}
+.tplkind .row2{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .warnlist{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--warn);display:grid;gap:2px}
 .imp-mode{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13.5px}
 .imp-mode label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
@@ -439,21 +445,38 @@ em.bad{font-style:normal;font-size:12.5px}
             </div>
           </div>
           <div id="detRt" hidden>
-            <label class="fld"><span>治療法</span><input id="fTx" type="text" maxlength="60" placeholder="例: 外部照射、根治"></label>
-            <label class="fld" id="techWrap"><span>治療技術</span>
-              <select id="fTech">
-                <option value="">指定なし</option>
-                <option value="imrt">強度変調放射線治療</option>
-                <option value="srt">定位放射線照射</option>
-                <option value="hp">高精度（強度変調・定位の区別なし）</option>
-                <option value="brachy">密封小線源治療</option>
-                <option value="special">特殊治療</option>
-              </select>
+            <label class="fld" id="techWrap"><span>治療種別・治療技術</span><select id="fTech"></select></label>
+            <label class="fld"><span>治療法（自由記載）</span><input id="fTx" type="text" maxlength="60" placeholder="例: 外部照射、根治"></label>
+            <label class="fld" id="roleRtWrap" hidden><span>術者／第一助手（密封小線源）</span>
+              <select id="fRoleRt"><option value="">—</option><option value="術">術</option><option value="助">助</option></select>
             </label>
+            <details class="moredet" id="rtDet">
+              <summary>治療の詳細（研修手帳の様式に書き込む項目）</summary>
+              <div class="two">
+                <label class="fld"><span>依頼科</span><input id="fU" type="text" maxlength="20" placeholder="例: 泌尿器科"></label>
+                <label class="fld"><span>照射部位</span><input id="fRtSite" type="text" maxlength="30" placeholder="例: 骨盤部"></label>
+              </div>
+              <div class="two">
+                <label class="fld"><span>目的</span>
+                  <select id="fPu"><option value="">—</option><option>根治</option><option>準根治</option><option>姑息・緩和</option><option>他</option></select>
+                </label>
+                <label class="fld" id="nuWrap" hidden><span>核種（小線源）</span><input id="fNu" type="text" maxlength="12" placeholder="例: 192-Ir"></label>
+              </div>
+              <div class="two">
+                <label class="fld"><span>1回線量（Gy）</span><input id="fDs" type="number" inputmode="decimal" min="0.01" max="100" step="0.01" placeholder="例: 2"></label>
+                <label class="fld"><span>照射回数</span><input id="fFx" type="number" inputmode="numeric" min="1" max="99" placeholder="例: 30"></label>
+              </div>
+              <div class="two">
+                <label class="fld"><span>全照射量（Gy）</span><input id="fTd" type="number" inputmode="decimal" min="0.1" max="200" step="0.01"></label>
+                <label class="fld"><span>終了年月</span><input id="fD2" type="month"></label>
+              </div>
+              <label class="fld"><span>有害事象</span><input id="fAe" type="text" maxlength="40" placeholder="例: 軽度の排尿障害"></label>
+              <p class="hint">開始年月は「経験日」が使われます。全照射量を空にすると、1回線量×照射回数が入ります。</p>
+            </details>
           </div>
           <label class="fld"><span id="lblDz">診断名（任意）</span><input id="fDz" type="text" maxlength="80" placeholder="例: 肝細胞癌、肺炎"></label>
           <label class="fld" id="slotWrap"><span>疾患群の枠（任意・研修手帳A.疾患）</span><select id="fSlot"></select></label>
-          <details class="moredet">
+          <details class="moredet" id="moreDet">
             <summary>施設・読影者・メモ</summary>
             <label class="fld"><span>施設</span><input id="fSite" type="text" list="siteList" maxlength="60"></label>
             <datalist id="siteList"></datalist><datalist id="partList"></datalist><datalist id="kindList"></datalist>
@@ -496,10 +519,9 @@ em.bad{font-style:normal;font-size:12.5px}
           <p class="loginfo" id="exInfo"></p>
           <div class="card tplcard">
             <h3>研修手帳の様式（Excel）</h3>
-            <p>日本医学放射線学会の様式（形成評価 Ⅳ.経験）に、登録した症例をそのまま書き込んだExcelを出力します。施設名・施設コード・検査日・年齢・性別・疾患名・症例番号などが所定の列に入り、書式や入力規則は元の様式のままです。患者IDは含まれません。</p>
+            <p>学会が配布している研修手帳の様式に、登録した症例をそのまま書き込んだExcelを出力します。<b>放射線科専門医（基本領域）の経験症例記録</b>、<b>診断専門医</b>と<b>治療専門医</b>の専攻医研修手帳に対応しています（ファイルの中身から種類を自動で判別します）。書式や入力規則は元の様式のままです。患者IDは含まれません。</p>
             <div id="tplFile"></div>
             <div id="tplInfo"></div>
-            <button class="btn primary" data-act="tpl">様式に書き込んで出力</button>
           </div>
           <div class="acts">
             <div class="card">
@@ -599,6 +621,27 @@ const CAT_BY = {}; CATS.forEach(c => { CAT_BY[c.k] = c; });
 const GROUP_BY = {}; GROUPS.forEach(g => { GROUP_BY[g.id] = g; });
 const TECH_BY = {}; TECHS.forEach(t => { TECH_BY[t.k] = t; });
 const RT4 = ['rt_head','rt_chest','rt_abd','rt_msk'];
+// 放射線治療の「治療種別・技術」: t は治療技術（集計用）、mt は研修手帳の「治療種別」欄に書く名前
+const RT_KINDS = [
+  {id:'', label:'指定なし', t:'', mt:''},
+  {id:'3dcrt', label:'3DCRT', t:'', mt:'3DCRT'},
+  {id:'imrt', label:'強度変調放射線治療（IMRT）', t:'imrt', mt:'IMRT'},
+  {id:'srt_h', label:'頭部定位放射線照射', t:'srt', mt:'頭部定位放射線照射'},
+  {id:'srt_b', label:'体幹部定位放射線照射', t:'srt', mt:'体幹部定位放射線照射'},
+  {id:'particle', label:'粒子線治療', t:'special', mt:'粒子線治療'},
+  {id:'brachy', label:'密封小線源治療', t:'brachy', mt:'密封小線源治療'},
+  {id:'special', label:'特殊治療（全身照射・術中照射など。内容は「治療法」に）', t:'special', mt:''},
+  {id:'srt', label:'定位放射線照射（頭部・体幹を分けない）', t:'srt', mt:''},
+  {id:'hp', label:'高精度（強度変調・定位の区別なし）', t:'hp', mt:''}
+];
+const RT_MT = RT_KINDS.filter(k => k.mt).map(k => k.mt);
+const RT_PURPOSES = ['根治', '準根治', '姑息・緩和', '他'];
+// 記録 → 選択肢のid（完全一致 → 技術だけ一致 → 種別だけ一致の順）
+function rtKindId(e){
+  const t = (e && e.t) || '', mt = (e && e.mt) || '';
+  const hit = RT_KINDS.find(k => k.id && k.t === t && k.mt === mt) || RT_KINDS.find(k => k.id && t && k.t === t) || RT_KINDS.find(k => k.id && mt && k.mt === mt);
+  return hit ? hit.id : '';
+}
 
 const TRACKS = [
   {
@@ -699,30 +742,48 @@ function monthKey(d){ return 'm-' + d.slice(0, 7); }
 function clampN(n){ n = Math.round(Number(n)); if (!isFinite(n) || n < 1) return 1; return Math.min(n, 999); }
 function isId(id){ return typeof id === 'string' && /^[A-Za-z0-9_-]{4,40}$/.test(id); }
 
-const TXT_MAX = {z:80, m:120, s:60, p:30, q:20, r:80, f1:20, f2:20, h:60, tx:60};
+const TXT_MAX = {z:80, m:120, s:60, p:30, q:20, r:80, f1:20, f2:20, h:60, tx:60, u:20, ae:40, nu:12};
 function intIn(v, lo, hi){
   if (v === '' || v == null) return null;
   const n = Math.round(Number(v));
   return isFinite(n) && n >= lo && n <= hi ? n : null;
 }
+function numIn(v, lo, hi, dec){
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  if (!isFinite(n) || n < lo || n > hi) return null;
+  const k = Math.pow(10, dec || 0);
+  return Math.round(n * k) / k;
+}
+function isMonth(s){ return typeof s === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s) && Number(s.slice(0, 4)) >= 2000 && Number(s.slice(0, 4)) <= 2100; }
 function cleanTxt(v, max){ return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max); }
 // 1件の記録: d 日付 / c 区分 / n 件数 / a 年齢 / x 性別(M,F) / p 部位 / q 種別 / r 依頼内容 / z 診断名・疾患名 / k 疾患群の枠(1-100)
 //          f1 第一読影者・術者・立案者 / f2 確定者・指導医 / h 手技(IVR) / tx 治療法(放射線治療) / ro 術・助 / o 診断のみ / t 治療技術 / s 施設 / m メモ
+//          放射線治療のみ: mt 治療種別 / pu 目的 / p 照射部位 / u 依頼科 / ds 1回線量(Gy) / fx 照射回数 / td 全照射量(Gy) / d2 終了年月 / ae 有害事象 / nu 核種（小線源）
 function sanitizeEntry(raw){
   if (!raw || typeof raw !== 'object') return null;
   if (!isDate(raw.d) || typeof raw.c !== 'string' || !CAT_BY[raw.c]) return null;
   const g = CAT_BY[raw.c].g;
   const e = {d: raw.d, c: raw.c, n: clampN(raw.n)};
-  if (raw.t && TECH_BY[raw.t] && g === 'rt') e.t = raw.t;
+  if (g === 'rt') {
+    if (raw.t && TECH_BY[raw.t]) e.t = raw.t;
+    if (raw.mt && RT_MT.indexOf(raw.mt) >= 0) e.mt = raw.mt;
+    if (RT_PURPOSES.indexOf(raw.pu) >= 0) e.pu = raw.pu;
+    const ds = numIn(raw.ds, 0.01, 100, 2); if (ds != null) e.ds = ds;
+    const fx = intIn(raw.fx, 1, 99); if (fx != null) e.fx = fx;
+    const td = numIn(raw.td, 0.1, 200, 2); if (td != null) e.td = td;
+    if (isMonth(raw.d2)) e.d2 = raw.d2;
+  }
   const a = intIn(raw.a, 0, 120); if (a != null) e.a = a;
   if (raw.x === 'M' || raw.x === 'F') e.x = raw.x;
   const keys = ['z', 'm', 's', 'f1', 'f2'];
   if (g === 'img') keys.push('p', 'q', 'r');
   if (g === 'ivr') keys.push('h');
-  if (g === 'rt') keys.push('tx');
+  if (g === 'rt') keys.push('tx', 'p', 'u', 'ae', 'nu');
   keys.forEach(k => { if (raw[k]) { const v = cleanTxt(raw[k], TXT_MAX[k]); if (v) e[k] = v; } });
   if (g === 'img' && e.n === 1) { const k = intIn(raw.k, 1, 100); if (k != null) e.k = k; }
-  if (g === 'ivr') { if (raw.ro === '術' || raw.ro === '助') e.ro = raw.ro; if (raw.o) e.o = 1; }
+  if (g === 'ivr' || (g === 'rt' && e.t === 'brachy')) { if (raw.ro === '術' || raw.ro === '助') e.ro = raw.ro; }
+  if (g === 'ivr' && raw.o) e.o = 1;
   return e;
 }
 function cleanMonths(rawMonths){
@@ -799,7 +860,10 @@ function sanitizeSettings(s){
       if (!f || typeof f.n !== 'string') return;
       const n = cleanTxt(f.n, 40); if (!n || o.facs.some(x => x.n === n)) return;
       const c = String(f.c == null ? '' : f.c).normalize('NFKC').replace(/\s/g, '');
-      o.facs.push({n: n, c: /^\d{9}$/.test(c) ? c : ''});
+      const k = cleanTxt(String(f.k == null ? '' : f.k).normalize('NFKC'), 12);
+      const fo = {n: n, c: /^\d{9}$/.test(c) ? c : ''};
+      if (k) fo.k = k;
+      o.facs.push(fo);
     });
   }
   if (typeof s.me === 'string') o.me = cleanTxt(s.me, 20);
@@ -857,10 +921,12 @@ function csvCell(v){
 function entryRow(e, raw){
   const T = raw ? (v => v == null ? '' : v) : safeText;
   return [e.d, CAT_BY[e.c].label, e.n, e.a != null ? e.a : '', e.x || '', T(e.p), T(e.q), T(e.r), T(e.z), e.k || '',
-    e.t ? TECH_BY[e.t].label : '', T(e.h || e.tx), e.ro || '', e.o ? '○' : '', T(e.s), T(e.f1), T(e.f2), T(e.m)];
+    e.t ? TECH_BY[e.t].label : '', T(e.h || e.tx), e.ro || '', e.o ? '○' : '', T(e.s), T(e.f1), T(e.f2), T(e.m),
+    T(e.u), e.mt || '', e.pu || '', e.ds != null ? e.ds : '', e.fx != null ? e.fx : '', e.td != null ? e.td : '', e.d2 || '', T(e.ae), T(e.nu)];
 }
 const ENTRY_HEAD = ['検査日・経験日', '区分', '件数', '年齢', '性別', '部位', '種別', '依頼内容', '診断名・疾患名', '疾患群の枠',
-  '治療技術', '手技・治療法', '術/助', '診断のみ', '施設', '第一読影者・術者・立案者', '確定者・指導医', 'メモ'];
+  '治療技術', '手技・治療法', '術/助', '診断のみ', '施設', '第一読影者・術者・立案者', '確定者・指導医', 'メモ',
+  '依頼科', '治療種別', '目的', '1回線量(Gy)', '照射回数', '全照射量(Gy)', '終了年月', '有害事象', '核種'];
 function toCSV(entries){
   const rows = [ENTRY_HEAD].concat(entries.map(entryRow));
   return '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
@@ -1318,7 +1384,7 @@ function pickCap(list, cap){
   return {rows: rows, cut: list.length - rows.length};
 }
 function buildTemplateData(entries, st){
-  const rep = {counts: {}, cut: {}, noAge: 0, noSex: 0, noFac: 0, noCode: 0, slots: 0, slotNoDiag: 0, total: 0, expanded: 0};
+  const rep = {kind: 'base', counts: {}, cut: {}, noAge: 0, noSex: 0, noFac: 0, noCode: 0, slots: 0, slotNoDiag: 0, total: 0, expanded: 0};
   const sheets = {a: {}};
   const all = expandCases(entries);
   const me = st.me || '', sv = st.sv || '';
@@ -1375,17 +1441,160 @@ function buildTemplateData(entries, st){
   }
   return {sheets: sheets, report: rep};
 }
+/* ---------- 診断専門医・治療専門医の「専攻医研修手帳」（日本専門医機構） ---------- */
+const TPL_KINDS = [
+  {id: 'base', name: '放射線科専門医（基本領域）', track: 'base', file: '経験症例記録の様式'},
+  {id: 'diag', name: '診断専門医', track: 'diag', file: '専攻医研修手帳（放射線診断領域）'},
+  {id: 'rt', name: '治療専門医', track: 'rt', file: '専攻医研修手帳（放射線治療領域）'}
+];
+const KIND_BY = {}; TPL_KINDS.forEach(k => { KIND_BY[k.id] = k; });
+// シート名・先頭の行・様式の行数（cap）。診断の行数は様式の既定値（足りなければ行を追加する）
+const NB = {
+  diag: {
+    first: 6,
+    sheets: {
+      xray: {name: '形成評価（Ⅳ.経験B.単純）', cap: 403}, gi: {name: '形成評価（Ⅳ.経験B.消化管）', cap: 63}, us: {name: '形成評価（Ⅳ.経験B.超音波）', cap: 123},
+      ct: {name: '形成評価（Ⅳ.経験B.CT）', cap: 603}, mri: {name: '形成評価（Ⅳ.経験B.MRI）', cap: 303}, rn: {name: '形成評価（Ⅳ.経験B.核医）', cap: 53},
+      ivr: {name: '形成評価（Ⅳ.経験 C.IVR）', cap: 33}
+    },
+    marks: ['施設番号', '研修指導医確認', '手技・治療法']
+  },
+  rt: {
+    sheets: {
+      head: {name: '☆形成評価（Ⅳ.経験症例 A.部位-頭部・頭頸部）', first: 7, cap: 150, cat: 'rt_head'},
+      chest: {name: '☆形成評価（Ⅳ.経験症例 A.部位-胸部）', first: 7, cap: 150, cat: 'rt_chest'},
+      abd: {name: '☆形成評価（Ⅳ.経験症例 A.部位-腹部 骨盤部）', first: 7, cap: 150, cat: 'rt_abd'},
+      msk: {name: '☆形成評価（Ⅳ.経験症例 A.部位-四肢・皮膚・その他）', first: 7, cap: 150, cat: 'rt_msk'},
+      brachy: {name: '☆形成評価（Ⅳ.治療技術 B.技術-密封小線源）', first: 7, cap: 33, tech: 'brachy'},
+      imrt: {name: '☆形成評価（Ⅳ.治療技術 B.技術-高精度治療-強度変調）', first: 6, cap: 33, tech: 'imrt'},
+      srt: {name: '☆形成評価（Ⅳ.治療技術 B.技術-高精度治療-定位放射線照射', first: 6, cap: 33, tech: 'srt'},
+      special: {name: '☆形成評価（Ⅳ.治療技術 B.技術-特殊治療）', first: 6, cap: 33, tech: 'special'}
+    },
+    marks: ['施設番号', '初期治療医', '照射部位', '核種']
+  }
+};
+function nbNo(f){ return f.k || f.n || ''; }                       // 手帳の「施設番号」: 設定の施設番号。無ければ施設名
+function ymd8(d){ return d.replace(/-/g, ''); }
+function monthSerial(m){ return m ? dateSerial(m + '-01') : ''; }
+function gy(n){ return n == null ? '' : n + ' Gy'; }
+function totalDose(e){ return e.td != null ? e.td : (e.ds != null && e.fx != null ? Math.round(e.ds * e.fx * 100) / 100 : null); }
+function noteCase(rep, e, f){
+  rep.total++;
+  if (e.dup) rep.expanded++;
+  if (e.a == null) rep.noAge++;
+  if (!e.x) rep.noSex++;
+  if (!f.n) rep.noFac++; else if (!f.k) rep.noNo++;
+}
+function newNbReport(kind){ return {kind: kind, counts: {}, cut: {}, added: {}, noAge: 0, noSex: 0, noFac: 0, noNo: 0, noMe: 0, noDetail: 0, hpSkipped: 0, total: 0, expanded: 0}; }
+
+// 診断専門医の専攻医研修手帳: B.検査（単純・消化管・超音波・CT・MRI・核医学）とC.IVR。行が足りなければ書き込み時に行を足す
+function buildDiagData(entries, st){
+  const rep = newNbReport('diag'), first = NB.diag.first, S = NB.diag.sheets;
+  const all = expandCases(entries), me = st.me || '', sv = st.sv || '', sheets = {}, need = {};
+  B_ORDER.forEach(k => {
+    const list = all.filter(e => e.c === k), rows = {};
+    list.forEach((e, i) => {
+      const f = facOf(st, e.s); noteCase(rep, e, f);
+      rows[first + i] = {B: nbNo(f), C: ymd8(e.d), D: e.a, E: e.x, F: e.p, G: e.q, H: e.r, I: e.z, J: e.f1 || me, K: e.f2 || sv};
+    });
+    sheets[k] = rows; need[k] = first - 1 + list.length; rep.counts[k] = list.length;
+  });
+  const list = all.filter(e => e.c === 'ivr_v' || e.c === 'ivr_n'), rows = {};
+  list.forEach((e, i) => {
+    const f = facOf(st, e.s); noteCase(rep, e, f);
+    rows[first + i] = {B: nbNo(f), C: ymd8(e.d), D: e.a, E: e.x, F: e.z, G: e.h, H: e.c === 'ivr_v' ? '血管系' : '非血管系', I: e.o ? '○' : '', J: e.f1 || me, K: e.ro, L: e.f2 || sv};
+  });
+  sheets.ivr = rows; need.ivr = first - 1 + list.length; rep.counts.ivr = list.length;
+  Object.keys(S).forEach(k => { const add = (need[k] || 0) - (first - 1 + S[k].cap); if (add > 0) rep.added[k] = add; });
+  return {sheets: sheets, report: rep, need: need};
+}
+
+// 治療専門医の専攻医研修手帳: 部位別の4シート（A.）と治療技術の4シート（B.）。同じ症例が部位別と技術の両方に入ることがある
+function buildRtData(entries, st){
+  const rep = newNbReport('rt'), S = NB.rt.sheets;
+  const all = expandCases(entries).filter(e => CAT_BY[e.c].g === 'rt'), me = st.me || '', sv = st.sv || '', sheets = {};
+  const fxs = e => e.fx != null ? e.fx + '回' : '';
+  const roS = e => e.ro ? '（' + e.ro + '）' : '';
+  Object.keys(S).filter(k => S[k].cat).forEach(k => {
+    const pc = pickCap(all.filter(e => e.c === S[k].cat), S[k].cap), rows = {};
+    pc.rows.forEach((e, i) => {
+      const f = facOf(st, e.s); noteCase(rep, e, f);
+      if (!(e.f1 || me)) rep.noMe++;
+      if (!e.dup && (!e.pu || e.fx == null)) rep.noDetail++;
+      const kindName = e.mt || e.tx || (e.t === 'imrt' ? 'IMRT' : e.t === 'brachy' ? '密封小線源治療' : '');
+      rows[S[k].first + i] = {B: nbNo(f), C: e.a, D: e.x, E: e.u, F: e.z, G: e.p, H: kindName, I: e.pu, J: gy(e.ds), K: fxs(e), L: gy(totalDose(e)),
+        M: dateSerial(e.d), N: monthSerial(e.d2), O: e.ae, P: e.f1 || me, Q: roS(e), S: e.f2 || sv};
+    });
+    sheets[k] = rows; rep.counts[k] = pc.rows.length; if (pc.cut) rep.cut[k] = pc.cut;
+  });
+  rep.hpSkipped = all.filter(e => e.t === 'hp').length;
+  Object.keys(S).filter(k => S[k].tech).forEach(k => {
+    const pc = pickCap(all.filter(e => e.t === S[k].tech), S[k].cap), rows = {};
+    pc.rows.forEach((e, i) => {
+      const f = facOf(st, e.s), td = totalDose(e);
+      rows[S[k].first + i] = k === 'brachy'
+        ? {B: nbNo(f), C: e.a, D: e.x, E: e.u, F: e.z, G: e.p, H: e.pu, I: e.nu, J: fxs(e), K: gy(td), L: dateSerial(e.d), M: e.ae, N: e.f1 || me, O: roS(e), Q: e.f2 || sv}
+        : {B: nbNo(f), C: e.a, D: e.x, E: e.u, F: e.z, G: k === 'special' ? (e.tx || e.mt || '') : e.p, H: e.pu, I: fxs(e), J: gy(td), K: dateSerial(e.d), L: monthSerial(e.d2), M: e.ae, N: e.f1 || me, Q: e.f2 || sv};
+    });
+    sheets[k] = rows; rep.counts[k] = pc.rows.length; if (pc.cut) rep.cut[k] = pc.cut;
+  });
+  return {sheets: sheets, report: rep, need: {}};
+}
+function buildKindData(kind, entries, st){
+  return kind === 'diag' ? buildDiagData(entries, st) : kind === 'rt' ? buildRtData(entries, st) : buildTemplateData(entries, st);
+}
+
+// 行を足す: 最後の番号つきの行（A列が数字の行）を複製して、必要な行数まで増やす。後ろにある行（注記など）は下へずらす
+function lastNumRow(xml){
+  let last = 0;
+  xml.replace(/<c r="A(\d+)"([^>]*)><v>[^<]*<\/v>/g, (m, r, a) => { if (!/\bt="/.test(a)) last = Math.max(last, Number(r)); return m; });
+  return last;
+}
+function shiftRowRef(ref, from, by){
+  return ref.replace(/([A-Z]+)(\d+)/g, (m, c, r) => c + (Number(r) > from ? Number(r) + by : r));
+}
+function extendSheetXml(xml, need){
+  const last = lastNumRow(xml);
+  if (!last || need <= last) return {xml: xml, added: 0};
+  const extra = need - last;
+  const rowRe = r => new RegExp('<row r="' + r + '"[^>]*?(?:/>|>[\\s\\S]*?</row>)');
+  const lm = rowRe(last).exec(xml), mm = rowRe(last - 1).exec(xml);
+  if (!lm || !mm) return {xml: xml, added: 0};
+  const n0 = Number((/<c r="A\d+"[^>]*><v>(\d+)<\/v>/.exec(lm[0]) || [0, 0])[1]);
+  const clone = (row, r, n) => row.replace(/<row r="\d+"/, '<row r="' + r + '"').replace(/<c r="([A-Z]+)\d+"/g, (m, c) => '<c r="' + c + r + '"')
+    .replace(/(<c r="A\d+"[^>]*><v>)\d+(<\/v>)/, '$1' + n + '$2');
+  let add = '';
+  for (let i = 1; i <= extra; i++) add += clone(i === extra ? lm[0] : mm[0], last + i, n0 + i);
+  const end = lm.index + lm[0].length, close = xml.indexOf('</sheetData>');
+  const tail = xml.slice(end, close).replace(/<row r="(\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, row => {
+    const r = Number(/r="(\d+)"/.exec(row)[1]);
+    return row.replace(/<row r="\d+"/, '<row r="' + (r + extra) + '"').replace(/<c r="([A-Z]+)(\d+)"/g, (m, c, rr) => '<c r="' + c + (Number(rr) + extra) + '"');
+  });
+  let out = xml.slice(0, lm.index) + clone(mm[0], last, n0) + add + tail + xml.slice(close);
+  out = out.replace(/(<mergeCell ref=")([^"]+)(")/g, (m, a, ref, b) => a + shiftRowRef(ref, last, extra) + b)
+    .replace(/<dimension ref="([A-Z]+\d+):([A-Z]+)(\d+)"/, (m, a, c, r) => '<dimension ref="' + a + ':' + c + (Number(r) >= last ? Number(r) + extra : r) + '"');
+  return {xml: out, added: extra};
+}
+
+const SHEET_LABEL = {xray: '単純X線', gi: '消化管', us: '超音波', ct: 'CT', mri: 'MRI', rn: '核医学', ivr: 'IVR', rt: '放射線治療',
+  head: '脳・頭頸部', chest: '胸部', abd: '腹部・骨盤部', msk: '四肢・皮膚・その他', brachy: '密封小線源', imrt: '強度変調', srt: '定位放射線照射', special: '特殊治療'};
 function reportWarnings(rep){
   const w = [];
   if (rep.noFac) w.push('施設名が入っていない症例が ' + rep.noFac + ' 件あります（設定で施設を登録すると入ります）。');
   if (rep.noCode) w.push('施設コード（9桁）が未設定の症例が ' + rep.noCode + ' 件あります。');
+  if (rep.noNo) w.push('施設番号（例: 総-12）が未設定の症例が ' + rep.noNo + ' 件あります。施設名を書き込みました（設定の施設に「施設番号」を入れると、その番号が入ります）。');
   if (rep.noAge) w.push('年齢が未入力の症例が ' + rep.noAge + ' 件あります。');
   if (rep.noSex) w.push('性別が未入力の症例が ' + rep.noSex + ' 件あります。');
+  if (rep.noMe) w.push('初期治療医（自分の氏名）が空の症例が ' + rep.noMe + ' 件あります。様式の「小計」は初期治療医の欄の入力を数えるため、設定で「自分の氏名」を入れてください。');
+  if (rep.noDetail) w.push('目的・照射回数が未入力の症例が ' + rep.noDetail + ' 件あります（様式の項目です。登録画面で入力するか、出力したExcelに直接書き足してください）。');
+  if (rep.hpSkipped) w.push('「高精度（強度変調・定位の区別なし）」の記録 ' + rep.hpSkipped + ' 件は、強度変調か定位か分からないため、治療技術のシートには書き込めませんでした。編集して種別を選び直してください。');
   if (rep.expanded) w.push('件数だけで登録された記録を ' + rep.expanded + ' 行に展開しました（年齢・性別などは空欄です）。');
   if (rep.slotNoDiag) w.push('疾患・病態名が空の疾患群の枠が ' + rep.slotNoDiag + ' 件あります。');
-  Object.keys(rep.cut).forEach(k => {
-    const nm = k === 'ivr' ? 'IVR' : k === 'rt' ? '放射線治療' : (CAT_BY[k] ? CAT_BY[k].short : k);
-    w.push(nm + 'は様式の行数を超えたため、' + rep.cut[k] + ' 件を書き込めませんでした（疾患群に使った症例は優先して残しています）。');
+  Object.keys(rep.added || {}).forEach(k => {
+    if (rep.added[k] > 0) w.push((SHEET_LABEL[k] || k) + 'は様式の行数を超えたため、行を ' + rep.added[k] + ' 行追加して書き込みました（様式の見た目はそのままです）。');
+  });
+  Object.keys(rep.cut || {}).forEach(k => {
+    w.push((SHEET_LABEL[k] || k) + 'は様式の行数を超えたため、' + rep.cut[k] + ' 件を書き込めませんでした' + (rep.kind === 'rt' ? '。' : '（疾患群に使った症例は優先して残しています）。'));
   });
   return w;
 }
@@ -1423,9 +1632,10 @@ function xmlUnesc(s){
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 }
 const noWs = s => String(s).replace(/[\s　]+/g, '');
-// xlsx（JSZipで開いたもの）が、想定した様式かを調べる。{problems: [...], files: {キー: シートのパス}, xml: {キー: シートXML}}
+// xlsx（JSZipで開いたもの）が、想定した様式かを調べる。{kind, problems: [...], files: {キー: シートのパス}, xml: {キー: シートXML}}
+// kind: 'base'（放射線科専門医の経験症例記録）/ 'diag'（診断専門医の専攻医研修手帳）/ 'rt'（治療専門医の専攻医研修手帳）
 async function checkTemplateZip(zip){
-  const bad = m => ({problems: [m], files: {}, xml: {}});
+  const bad = m => ({kind: '', problems: [m], files: {}, xml: {}});
   const wbf = zip.file('xl/workbook.xml'), rf = zip.file('xl/_rels/workbook.xml.rels');
   if (!wbf || !rf) return bad('Excel（.xlsx）ファイルとして読めませんでした。');
   const wbXml = await wbf.async('string'), relXml = await rf.async('string');
@@ -1441,26 +1651,39 @@ async function checkTemplateZip(zip){
     if (n && r && target[r[1]]) byName[noWs(xmlUnesc(n[1]))] = target[r[1]];
     return m;
   });
+  const has = n => !!byName[noWs(n)];
+  const rtS = NB.rt.sheets, dgS = NB.diag.sheets;
+  let kind = '';
+  if (has(TPL_SHEETS.a.name)) kind = 'base';
+  else if (Object.keys(rtS).some(k => has(rtS[k].name))) kind = 'rt';
+  else if (has(dgS.xray.name) && has(dgS.ivr.name)) kind = 'diag';
+  if (!kind) return bad('シート「' + TPL_SHEETS.a.name + '」が見つかりません。対応しているのは、放射線科専門医の経験症例記録、診断専門医・治療専門医の専攻医研修手帳です。');
+  const spec = kind === 'base' ? TPL_SHEETS : NB[kind].sheets;
   const problems = [], files = {}, xml = {};
-  const keys = Object.keys(TPL_SHEETS);
-  for (const k of keys) {
-    const path = byName[noWs(TPL_SHEETS[k].name)];
-    if (!path || !zip.file(path)) { problems.push('シート「' + TPL_SHEETS[k].name + '」が見つかりません。'); continue; }
+  for (const k of Object.keys(spec)) {
+    const path = byName[noWs(spec[k].name)];
+    if (!path || !zip.file(path)) { problems.push('シート「' + spec[k].name + '」が見つかりません。'); continue; }
     files[k] = path;
     xml[k] = await zip.file(path).async('string');
-    const need = k === 'a' ? Math.max.apply(null, SLOTS.map(x => x.row)) : 5 + TPL_SHEETS[k].cap;
-    if (xml[k].indexOf('<row r="' + need + '"') < 0) problems.push('「' + TPL_SHEETS[k].name + '」の行数が想定（' + need + '行目まで）と違います。');
+    let need;
+    if (kind === 'base') need = k === 'a' ? Math.max.apply(null, SLOTS.map(x => x.row)) : 5 + spec[k].cap;
+    else if (kind === 'rt') need = spec[k].first + spec[k].cap - 1;
+    else need = NB.diag.first;                                    // 診断は、足りない行を書き込み時に足す
+    if (xml[k].indexOf('<row r="' + need + '"') < 0) problems.push('「' + spec[k].name + '」の行数が想定（' + need + '行目まで）と違います。');
   }
-  if (problems.length) return {problems: problems, files: files, xml: xml};
-  // 疾患群・領域の名前が、様式の中に想定どおり並んでいるか（様式のバージョン違いの検出）
+  if (problems.length) return {kind: kind, problems: problems, files: files, xml: xml};
+  // 様式の版の違いの検出: 基本領域は、疾患群・領域・放射線治療の部位の名前。診断・治療は、項目名
   const sst = zip.file('xl/sharedStrings.xml');
   let text = '';
   if (sst) (await sst.async('string')).replace(/<si>([\s\S]*?)<\/si>/g, (m, inner) => { text += '\n' + noWs(xmlUnesc((inner.match(/<t\b[^>]*>[^<]*<\/t>/g) || []).map(t => t.replace(/<[^>]+>/g, '')).join(''))); return m; });
-  text += '\n' + noWs(xmlUnesc((xml.a.match(/<t\b[^>]*>[^<]*<\/t>/g) || []).map(t => t.replace(/<[^>]+>/g, '')).join('\n')));
-  const names = TPL_AREAS.concat(SLOTS.map(x => x.grp), Object.keys(TPL_RT_SITES).map(k => TPL_RT_SITES[k]));
+  let names;
+  if (kind === 'base') {
+    text += '\n' + noWs(xmlUnesc((xml.a.match(/<t\b[^>]*>[^<]*<\/t>/g) || []).map(t => t.replace(/<[^>]+>/g, '')).join('\n')));
+    names = TPL_AREAS.concat(SLOTS.map(x => x.grp), Object.keys(TPL_RT_SITES).map(k => TPL_RT_SITES[k]));
+  } else names = NB[kind].marks;
   const miss = Array.from(new Set(names)).filter(x => text.indexOf(noWs(x)) < 0);
   if (miss.length) problems.push('様式の内容が想定と違います（「' + miss.slice(0, 3).join('」「') + '」' + (miss.length > 3 ? 'など' + miss.length + '件' : '') + 'が見つかりません）。様式のバージョンが違う可能性があります。');
-  return {problems: problems, files: files, xml: xml};
+  return {kind: kind, problems: problems, files: files, xml: xml};
 }
 // src: base64文字列 / Uint8Array / ArrayBuffer
 async function openTemplate(JSZ, src){
@@ -1470,14 +1693,30 @@ async function openTemplate(JSZ, src){
   catch (e) { throw new Error('Excel（.xlsx）ファイルとして読み込めませんでした。'); }
   const chk = await checkTemplateZip(zip);
   if (chk.problems.length) { const e = new Error(chk.problems[0]); e.problems = chk.problems; throw e; }
-  return {zip: zip, files: chk.files, xml: chk.xml};
+  return {kind: chk.kind, zip: zip, files: chk.files, xml: chk.xml};
 }
-async function buildTemplateXlsx(JSZ, entries, st, src){
-  const data = buildTemplateData(entries, st);
+// 様式の種類は、ファイルの中身から自動で判別する（kind を渡すと、違う種類のときはエラーにする）
+async function buildTemplateXlsx(JSZ, entries, st, src, kind){
   const t = await openTemplate(JSZ, src == null ? (typeof TPL_B64 === 'string' ? TPL_B64 : '') : src);
-  Object.keys(TPL_SHEETS).forEach(k => { t.zip.file(t.files[k], fillSheetXml(t.xml[k], data.sheets[k] || {})); });
+  if (kind && kind !== t.kind) throw new Error('選んだ様式ファイルは「' + KIND_BY[t.kind].name + '」の様式です（「' + KIND_BY[kind].name + '」ではありません）。');
+  const data = buildKindData(t.kind, entries, st);
+  Object.keys(t.files).forEach(k => {
+    let x = t.xml[k];
+    if (data.need && data.need[k]) {
+      const r = extendSheetXml(x, data.need[k]);
+      x = r.xml;
+      if (r.added > 0) data.report.added[k] = r.added; else delete data.report.added[k];
+    }
+    t.zip.file(t.files[k], fillSheetXml(x, data.sheets[k] || {}));
+  });
+  // 小計・合計の数式は、Excelで開いたときに必ず計算し直させる（書き込む前の計算結果が残らないように）
+  const wbf = t.zip.file('xl/workbook.xml');
+  if (wbf) {
+    const w = await wbf.async('string');
+    t.zip.file('xl/workbook.xml', w.replace(/<calcPr\b([^>]*?)(\/?)>/, (m, a, sl) => /fullCalcOnLoad=/.test(a) ? m : '<calcPr' + a + ' fullCalcOnLoad="1"' + sl + '>'));
+  }
   const bytes = await t.zip.generateAsync({type: 'uint8array', compression: 'DEFLATE', compressionOptions: {level: 6}});
-  return {bytes: bytes, report: data.report};
+  return {bytes: bytes, report: data.report, kind: t.kind};
 }
 
 /* ---------- state & storage ---------- */
@@ -1695,7 +1934,8 @@ async function saveFile(name, data, mime){
 
 /* ---------- 様式ファイル（GitHub版: 利用者が学会配布のxlsxを読み込む） ---------- */
 const TPL_EMBEDDED = typeof TPL_B64 === 'string' && TPL_B64.length > 1000;      // 様式を内蔵した版か
-const tplStore = {file: null, saved: false};                                  // file: {name, size, bytes(Uint8Array)}
+const tplStore = {files: {}, saved: {}};                                      // files[種類] = {name, size, bytes(Uint8Array)}。種類: base / diag / rt
+const TPL_IDB_KEY = {base: 'tpl', diag: 'tpl-diag', rt: 'tpl-rt'};            // base の 'tpl' は、以前の版で保存したものと同じ場所
 function tplDb(){
   return new Promise((resolve, reject) => {
     try {
@@ -1719,18 +1959,20 @@ async function tplIdb(mode, fn){
   } finally { db.close(); }
 }
 async function tplLoadSaved(){
-  if (TPL_EMBEDDED) return;
-  try {
-    const r = await tplIdb('readonly', st => st.get('tpl'));
-    if (r && r.bytes && r.name) { tplStore.file = {name: String(r.name), size: r.size || r.bytes.byteLength, bytes: new Uint8Array(r.bytes)}; tplStore.saved = true; }
-  } catch (e) {}
+  for (const k of Object.keys(TPL_IDB_KEY)) {
+    if (k === 'base' && TPL_EMBEDDED) continue;
+    try {
+      const r = await tplIdb('readonly', st => st.get(TPL_IDB_KEY[k]));
+      if (r && r.bytes && r.name) { tplStore.files[k] = {name: String(r.name), size: r.size || r.bytes.byteLength, bytes: new Uint8Array(r.bytes)}; tplStore.saved[k] = true; }
+    } catch (e) {}
+  }
 }
-async function tplPersist(){
-  const f = tplStore.file;
-  try { await tplIdb('readwrite', st => st.put({name: f.name, size: f.size, bytes: f.bytes.slice().buffer, at: Date.now()}, 'tpl')); tplStore.saved = true; }
-  catch (e) { tplStore.saved = false; }
+async function tplPersist(kind){
+  const f = tplStore.files[kind];
+  try { await tplIdb('readwrite', st => st.put({name: f.name, size: f.size, bytes: f.bytes.slice().buffer, at: Date.now()}, TPL_IDB_KEY[kind])); tplStore.saved[kind] = true; }
+  catch (e) { tplStore.saved[kind] = false; }
 }
-function tplSource(){ return TPL_EMBEDDED ? TPL_B64 : (tplStore.file ? tplStore.file.bytes : null); }
+function tplSource(kind){ kind = kind || 'base'; if (kind === 'base' && TPL_EMBEDDED) return TPL_B64; return tplStore.files[kind] ? tplStore.files[kind].bytes : null; }
 
 /* ---------- renderers: 共通 ---------- */
 function isDemo(){ return state.loaded && ui.screen === 'member' && !ui.asMember && getEntries().length === 0; }
@@ -1797,7 +2039,7 @@ function renderDrill(){
   el.hidden = false;
   const m = ui.asMember;
   el.innerHTML = '<span><b>' + esc(m.name) + '</b> さんの記録（閲覧のみ）' + (state.settings.cohort ? ' <span class="dim">' + esc(cohortLabel(state.settings.cohort)) + '</span>' : '') + '</span><span class="acts2">' +
-    '<button type="button" class="btn small primary" data-act="tpl">研修手帳の様式で出力</button>' +
+    TPL_KINDS.map(k => '<button type="button" class="btn small' + (k.id === 'base' ? ' primary' : '') + '" data-act="tpl" data-k="' + k.id + '">' + (k.id === 'base' ? '研修手帳（基本領域）' : '研修手帳（' + k.name.replace('専門医', '') + '）') + '</button>').join('') +
     '<button type="button" class="btn small" data-act="xlsx">Excel</button>' +
     '<button type="button" class="btn small" data-act="csv">CSV</button>' +
     '<button type="button" class="btn small" data-act="closeMember">← 全員の一覧へ戻る</button></span>';
@@ -1833,6 +2075,12 @@ function renderSites(){
   $('fSite').placeholder = state.settings.facs.length ? '空欄なら「' + state.settings.facs[0].n + '」' : '例: ○○病院';
 }
 
+// 密封小線源のときだけ、術者／第一助手と核種の欄を出す
+function updateRtFields(){
+  const k = RT_KINDS.find(x => x.id === $('fTech').value) || RT_KINDS[0], br = k.t === 'brachy';
+  $('roleRtWrap').hidden = !br; $('nuWrap').hidden = !br;
+  if (!br) { $('fRoleRt').value = ''; $('fNu').value = ''; }
+}
 function updateFormForCat(){
   if (!CAT_BY[ui.cat]) ui.cat = 'ct';
   const c = CAT_BY[ui.cat], g = c.g;
@@ -1843,7 +2091,9 @@ function updateFormForCat(){
   $('lblF2').textContent = g === 'img' ? '確定者（指導医）' : '指導医確認';
   $('fF1').placeholder = state.settings.me ? '空欄なら「' + state.settings.me + '」' : '';
   $('fF2').placeholder = state.settings.sv ? '空欄なら「' + state.settings.sv + '」' : '';
+  if (!$('fTech').options.length) $('fTech').innerHTML = RT_KINDS.map(k => '<option value="' + k.id + '">' + esc(k.label) + '</option>').join('');
   if (g !== 'rt') { $('fTech').value = ''; $('fTx').value = ''; }
+  updateRtFields();
   $('catHint').textContent = GROUP_BY[g].hint;
   $('nHint').hidden = !(Number($('fN').value) > 1);
   $('btnSave').disabled = !state.ready;
@@ -1946,29 +2196,45 @@ function renderTplFile(){
   const el = $(ui.asMember ? 'drillTpl' : 'tplFile'), other = $(ui.asMember ? 'tplFile' : 'drillTpl');
   if (other) other.innerHTML = '';
   if (!el) return;
-  if (TPL_EMBEDDED) { el.innerHTML = ''; return; }
-  const f = tplStore.file;
   const kb = n => n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
-  el.innerHTML = '<div class="tplfile' + (f ? '' : ' need') + '">' + (f
-    ? '<p>使用する様式: <b>' + esc(f.name) + '</b>（' + kb(f.size) + '）' + (tplStore.saved ? '　このブラウザに保存済み' : '　<span class="dim">この環境では保存できないため、開き直すと選び直しが必要です</span>') + '</p>' +
-      '<div class="row2"><label class="btn small" for="fTpl">別のファイルに変える</label><button type="button" class="btn small" data-act="tplforget">保存した様式を削除</button></div>'
-    : '<p><b>最初に、研修手帳の様式ファイルを選んでください。</b>日本医学放射線学会が配布している、経験症例記録のExcel（.xlsx）です。このアプリには様式ファイルは含まれていません。選んだファイルはこのブラウザの外には送られず、ブラウザの中に保存されるので、次回からは選び直し不要です。</p>' +
+  const any = TPL_KINDS.some(k => tplSource(k.id) != null);
+  const rows = TPL_KINDS.map(k => {
+    const f = tplStore.files[k.id];
+    if (k.id === 'base' && TPL_EMBEDDED) return '<p class="tplrow"><span class="kn">' + esc(k.name) + '</span>様式はこのページに内蔵されています。</p>';
+    if (!f) return '';
+    return '<p class="tplrow"><span class="kn">' + esc(k.name) + '</span>使用する様式: <b>' + esc(f.name) + '</b>（' + kb(f.size) + '）' +
+      (tplStore.saved[k.id] ? '　このブラウザに保存済み' : '　<span class="dim">この環境では保存できないため、開き直すと選び直しが必要です</span>') +
+      ' <button type="button" class="btn small" data-act="tplforget" data-k="' + k.id + '">削除</button></p>';
+  }).join('');
+  el.innerHTML = '<div class="tplfile' + (any ? '' : ' need') + '">' + rows + (any
+    ? '<div class="row2"><label class="btn small" for="fTpl">様式ファイルを追加・変更する</label><span class="dim">基本領域・診断・治療のどれでも選べます（自動で判別します）</span></div>'
+    : '<p><b>最初に、研修手帳の様式ファイルを選んでください。</b>日本医学放射線学会などが配布している、放射線科専門医の経験症例記録のExcel、または診断専門医・治療専門医の専攻医研修手帳のExcel（.xlsx）です。このアプリには様式ファイルは含まれていません。選んだファイルはこのブラウザの外には送られず、ブラウザの中に保存されるので、次回からは選び直し不要です。基本領域・診断・治療のどれでも選べます（自動で判別します）。</p>' +
       '<div class="row2"><label class="btn primary" for="fTpl">様式ファイルを選ぶ</label></div>') +
     '<input id="fTpl" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>' +
     (ui.tplMsg ? '<p class="msgline bad">' + esc(ui.tplMsg) + '</p>' : '') + '</div>';
 }
+// 出力タブの、様式ごとの「書き込む件数」と注意点
+const TPL_INFO_ROWS = {
+  base: [['xray', '単純X線', 'xray'], ['gi', '消化管', 'gi'], ['us', '超音波', 'us'], ['ct', 'CT', 'ct'], ['mri', 'MRI', 'mri'], ['rn', '核医学', 'rn'], ['ivr', 'IVR', 'ivr'], ['rt', '放射線治療', 'rt']],
+  diag: [['xray', '単純X線', 'xray'], ['gi', '消化管', 'gi'], ['us', '超音波', 'us'], ['ct', 'CT', 'ct'], ['mri', 'MRI', 'mri'], ['rn', '核医学', 'rn'], ['ivr', 'IVR', 'ivr']],
+  rt: [['head', '部位別: 脳・頭頸部', 'rt_head'], ['chest', '部位別: 胸部', 'rt_chest'], ['abd', '部位別: 腹部・骨盤部', 'rt_abd'], ['msk', '部位別: 四肢・皮膚・その他', 'rt_msk'],
+    ['brachy', '技術: 密封小線源', 't_brachy'], ['imrt', '技術: 強度変調', 't_imrt'], ['srt', '技術: 定位放射線照射', 't_srt'], ['special', '技術: 特殊治療', 't_special']]
+};
 function renderTplInfo(){
   const el = $('tplInfo');
   if (!el) return;
-  const rep = buildTemplateData(getEntries(), state.settings).report;
-  const base = TRACK_BY.base;
-  const goal = id => { const it = base.items.find(i => i.id === id); return it ? goalOf(base, it, state.settings) : null; };
-  const rows = [['xray', '単純X線'], ['gi', '消化管'], ['us', '超音波'], ['ct', 'CT'], ['mri', 'MRI'], ['rn', '核医学'], ['ivr', 'IVR'], ['rt', '放射線治療']]
-    .map(r => '<tr><td>' + r[1] + '</td><td class="r">' + fmtN(rep.counts[r[0]] || 0) + '</td><td class="r dim">' + (goal(r[0]) != null ? '目標 ' + fmtN(goal(r[0])) : '') + '</td></tr>');
-  rows.push('<tr><td>疾患群の枠（A.疾患）</td><td class="r">' + fmtN(rep.slots) + '</td><td class="r dim">目標 ' + fmtN(goal('dz') || 90) + ' / 100枠</td></tr>');
-  const w = reportWarnings(rep);
-  el.innerHTML = '<table class="itable"><thead><tr><th>シート</th><th class="r">書き込む件数</th><th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>' +
-    (w.length ? '<ul class="warnlist">' + w.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<p class="msgline">未入力の注意点はありません。</p>');
+  el.innerHTML = TPL_KINDS.map(k => {
+    const data = buildKindData(k.id, entriesFor(k.track), state.settings), rep = data.report, tr = TRACK_BY[k.track];
+    const goal = id => { const it = tr.items.find(i => i.id === id); return it ? goalOf(tr, it, state.settings) : null; };
+    const rows = TPL_INFO_ROWS[k.id].map(r => '<tr><td>' + r[1] + '</td><td class="r">' + fmtN(rep.counts[r[0]] || 0) + '</td><td class="r dim">' + (goal(r[2]) != null ? '目標 ' + fmtN(goal(r[2])) : '') + '</td></tr>');
+    if (k.id === 'base') rows.push('<tr><td>疾患群の枠（A.疾患）</td><td class="r">' + fmtN(rep.slots) + '</td><td class="r dim">目標 ' + fmtN(goal('dz') || 90) + ' / 100枠</td></tr>');
+    const w = reportWarnings(rep), has = tplSource(k.id) != null;
+    return '<section class="tplkind" data-kind="' + k.id + '"><h4>' + esc(k.name) + '<span class="dim">　' + esc(k.file) + '</span></h4>' +
+      '<table class="itable"><thead><tr><th>シート</th><th class="r">書き込む件数</th><th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>' +
+      (w.length ? '<ul class="warnlist">' + w.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<p class="msgline">未入力の注意点はありません。</p>') +
+      '<div class="row2"><button class="btn primary" data-act="tpl" data-k="' + k.id + '">' + esc(k.name.replace('（基本領域）', '')) + 'の様式に書き込んで出力</button>' +
+      (has ? '' : '<span class="dim">先に、上で様式ファイルを選んでください</span>') + '</div></section>';
+  }).join('');
 }
 
 function renderProgress(){
@@ -2058,7 +2324,7 @@ function renderLog(){
   const ro = readOnly();
   const all = sortEntries(getEntries());
   const fc = $('logCat').value, q = $('logQ').value.trim().toLowerCase();
-  const list = all.filter(e => (!fc || e.c === fc) && (!q || [e.z, e.p, e.q, e.r, e.h, e.tx, e.m, e.s, e.f1, e.f2].join(' ').toLowerCase().indexOf(q) >= 0));
+  const list = all.filter(e => (!fc || e.c === fc) && (!q || [e.z, e.p, e.q, e.r, e.h, e.tx, e.m, e.s, e.f1, e.f2, e.u, e.ae].join(' ').toLowerCase().indexOf(q) >= 0));
   const shown = list.slice(0, ui.logLimit);
   const total = list.reduce((s, e) => s + e.n, 0);
   $('logInfo').textContent = list.length ? '該当 ' + fmtN(list.length) + ' 件（症例数の合計 ' + fmtN(total) + '）' : '';
@@ -2069,7 +2335,8 @@ function renderLog(){
   }
   $('logList').innerHTML = shown.map(e => {
     const g = CAT_BY[e.c].g;
-    const subs = [slotDemog(e), e.p, e.q, e.z, e.r ? '依頼: ' + e.r : '', e.h, e.tx, e.s, e.m].filter(Boolean).map(esc).join(' ・ ');
+    const rtd = g === 'rt' ? [e.mt, e.pu, e.ds != null ? e.ds + ' Gy' : '', e.fx != null ? e.fx + '回' : '', e.td != null ? '計' + e.td + ' Gy' : '', e.u].filter(Boolean).join(' ') : '';
+    const subs = [slotDemog(e), e.p, e.q, e.z, e.r ? '依頼: ' + e.r : '', e.h, e.tx, rtd, e.s, e.m].filter(Boolean).map(esc).join(' ・ ');
     const del = ui.pendingDelete === e.id;
     const bad = g === 'img' && e.n === 1 && (e.a == null || !e.x);
     return '<div class="logrow"><div class="d">' + esc(e.d) + '</div>' +
@@ -2248,15 +2515,15 @@ function renderSettings(){
       '<div class="fld" style="align-content:end"><button class="btn" type="submit">パスコードを変更</button></div></form>' +
       '<p class="msgline" id="pwMsg"></p></section>';
   }
-  h += '<section class="card set"><h3>基本情報</h3><p class="srcp">研修手帳の様式に書き込むときに使います。施設コードは9桁の数字です。</p>' +
+  h += '<section class="card set"><h3>基本情報</h3><p class="srcp">研修手帳の様式に書き込むときに使います。施設コードは9桁の数字です（放射線科専門医の様式で使います）。施設番号は、診断専門医・治療専門医の専攻医研修手帳の「施設番号」欄に入れる番号です（例: 総-12。空欄なら施設名が入ります）。</p>' +
     '<div class="imp-sel">' +
     '<label class="fld"><span>入学年度</span><select data-act="cohort"><option value="0">未設定</option>' +
     cohortOptions().concat(st.cohort && cohortOptions().indexOf(st.cohort) < 0 ? [st.cohort] : []).sort((a, b) => b - a).map(y => '<option value="' + y + '"' + (st.cohort === y ? ' selected' : '') + '>' + y + '年度</option>').join('') + '</select></label>' +
     '<label class="fld"><span>自分の氏名（第一読影者・術者・立案者の既定）</span><input type="text" data-act="me" maxlength="20" value="' + esc(st.me) + '"></label>' +
     '<label class="fld"><span>指導医の氏名（確定者・指導医確認の既定）</span><input type="text" data-act="sv" maxlength="20" value="' + esc(st.sv) + '"></label></div>' +
     '<h4 class="subh">研修施設（先頭の施設が既定になります）</h4>' +
-    (st.facs.length ? '<ul class="faclist">' + st.facs.map((f, i) => '<li><span class="fn">' + esc(f.n) + '</span><span class="fc num2">' + (f.c ? esc(f.c) : '<em class="bad">コード未設定</em>') + '</span><button type="button" class="x" data-act="facdel" data-i="' + i + '" aria-label="この施設を削除">×</button></li>').join('') + '</ul>' : '<p class="srcp">まだ施設が登録されていません。</p>') +
-    '<form id="facForm" class="evform"><input id="facName" type="text" maxlength="40" placeholder="施設名（例: ○○大学病院）" aria-label="施設名"><input id="facCode" type="text" inputmode="numeric" maxlength="9" placeholder="施設コード9桁" aria-label="施設コード"><button class="btn small" type="submit">追加</button></form>' +
+    (st.facs.length ? '<ul class="faclist">' + st.facs.map((f, i) => '<li><span class="fn">' + esc(f.n) + '</span><span class="fc num2">' + (f.c ? esc(f.c) : '<em class="bad">コード未設定</em>') + (f.k ? ' ・ 番号 ' + esc(f.k) : '') + '</span><button type="button" class="x" data-act="facdel" data-i="' + i + '" aria-label="この施設を削除">×</button></li>').join('') + '</ul>' : '<p class="srcp">まだ施設が登録されていません。</p>') +
+    '<form id="facForm" class="evform"><input id="facName" type="text" maxlength="40" placeholder="施設名（例: ○○大学病院）" aria-label="施設名"><input id="facCode" type="text" inputmode="numeric" maxlength="9" placeholder="施設コード9桁" aria-label="施設コード"><input id="facNo" type="text" maxlength="12" placeholder="施設番号（診断・治療用）" aria-label="施設番号"><button class="btn small" type="submit">追加</button></form>' +
     '<p class="msgline bad" id="facMsg"></p></section>';
   h += TRACKS.map(t => {
     const r = st.range[t.id] || {};
@@ -2410,7 +2677,6 @@ function startEdit(id){
   $('editBar').hidden = false; $('btnSave').textContent = '更新'; $('entryTitle').textContent = '症例を編集';
   render();
   fillForm(e);
-  $('fTech').value = e.t || '';
   $('nHint').hidden = !(e.n > 1);
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   $('entry').scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'start'});
@@ -2481,13 +2747,20 @@ function fillForm(e){
   $('fPart').value = e.p || ''; $('fKind').value = e.q || ''; $('fReq').value = e.r || '';
   $('fProc').value = e.h || ''; $('fRole').value = e.ro || ''; $('fDxOnly').checked = !!e.o;
   $('fTx').value = e.tx || ''; $('fDz').value = e.z || '';
+  $('fTech').value = rtKindId(e); $('fRoleRt').value = e.ro || ''; $('fRtSite').value = e.p || ''; $('fU').value = e.u || '';
+  $('fPu').value = e.pu || ''; $('fNu').value = e.nu || ''; $('fDs').value = e.ds != null ? e.ds : ''; $('fFx').value = e.fx != null ? e.fx : '';
+  $('fTd').value = e.td != null ? e.td : ''; $('fD2').value = e.d2 || ''; $('fAe').value = e.ae || '';
+  $('rtDet').open = !!(e.u || e.p || e.pu || e.nu || e.ds != null || e.fx != null || e.td != null || e.d2 || e.ae);
+  updateRtFields();
   $('fSite').value = e.s || ''; $('fF1').value = e.f1 || ''; $('fF2').value = e.f2 || ''; $('fMemo').value = e.m || '';
   $('fSlot').value = e.k ? String(e.k) : '';
-  document.querySelector('.moredet').open = !!(e.s || e.f1 || e.f2 || e.m);
+  $('moreDet').open = !!(e.s || e.f1 || e.f2 || e.m);
 }
 
 function clearCaseFields(){
   ['fAge', 'fPart', 'fKind', 'fReq', 'fProc', 'fTx', 'fDz', 'fMemo'].forEach(id => { $(id).value = ''; });
+  ['fU', 'fRtSite', 'fNu', 'fDs', 'fFx', 'fTd', 'fD2', 'fAe'].forEach(id => { $(id).value = ''; });
+  $('fTd').placeholder = ''; $('fPu').value = ''; $('fTech').value = ''; $('fRoleRt').value = ''; updateRtFields();
   $('fSex').value = ''; $('fRole').value = ''; $('fDxOnly').checked = false; $('fN').value = 1;
   $('fSlot').value = '';
   $('nHint').hidden = true;
@@ -2501,7 +2774,15 @@ function formEntry(d){
     if (g === 'img') { raw.p = $('fPart').value.trim(); raw.q = $('fKind').value.trim(); raw.r = $('fReq').value.trim(); raw.k = $('fSlot').value; }
     if (g === 'ivr') { raw.h = $('fProc').value.trim(); raw.ro = $('fRole').value; raw.o = $('fDxOnly').checked; }
   }
-  if (g === 'rt') { raw.t = $('fTech').value; raw.tx = $('fTx').value.trim(); }
+  if (g === 'rt') {
+    const k = RT_KINDS.find(x => x.id === $('fTech').value) || RT_KINDS[0];
+    raw.t = k.t; raw.mt = k.mt; raw.tx = $('fTx').value.trim();
+    if (n === 1) {
+      raw.p = $('fRtSite').value.trim(); raw.u = $('fU').value.trim(); raw.pu = $('fPu').value;
+      raw.ds = $('fDs').value; raw.fx = $('fFx').value; raw.td = $('fTd').value; raw.d2 = $('fD2').value; raw.ae = $('fAe').value.trim();
+      if (k.t === 'brachy') { raw.nu = $('fNu').value.trim(); raw.ro = $('fRoleRt').value; }
+    }
+  }
   return raw;
 }
 
@@ -2544,34 +2825,41 @@ async function onTplFile(file){
     if (file.size > 8 * 1024 * 1024) throw new Error('ファイルが大きすぎます。');
     if (typeof JSZip === 'undefined') throw new Error('Excelを読む部品を読み込めませんでした。ページを開き直してください。');
     const bytes = new Uint8Array(await file.arrayBuffer());
-    await openTemplate(JSZip, bytes);                                 // 学会の様式として読めるか確認
-    tplStore.file = {name: file.name, size: bytes.length, bytes: bytes};
-    await tplPersist();
-    toast('様式ファイルを読み込みました: ' + file.name);
+    const t = await openTemplate(JSZip, bytes);                       // 学会の様式として読めるか確認し、種類（基本領域・診断・治療）を判別する
+    tplStore.files[t.kind] = {name: file.name, size: bytes.length, bytes: bytes};
+    await tplPersist(t.kind);
+    toast('様式ファイルを読み込みました（' + KIND_BY[t.kind].name + '）: ' + file.name);
   } catch (e) {
-    ui.tplMsg = ((e && e.message) || '読み込めませんでした。') + ' 学会が配布している研修手帳の様式（経験症例記録）のExcelを選んでください。';
+    ui.tplMsg = ((e && e.message) || '読み込めませんでした。') + ' 学会が配布している研修手帳の様式（放射線科専門医の経験症例記録、または診断専門医・治療専門医の専攻医研修手帳）のExcelを選んでください。';
   }
   render();
 }
-async function tplForget(){
-  tplStore.file = null; tplStore.saved = false; ui.tplMsg = '';
-  try { await tplIdb('readwrite', st => st.delete('tpl')); } catch (e) {}
-  render(); toast('保存した様式ファイルを削除しました。');
+async function tplForget(kind){
+  kind = kind || 'base';
+  delete tplStore.files[kind]; delete tplStore.saved[kind]; ui.tplMsg = '';
+  try { await tplIdb('readwrite', st => st.delete(TPL_IDB_KEY[kind])); } catch (e) {}
+  render(); toast('保存した様式ファイル（' + KIND_BY[kind].name + '）を削除しました。');
 }
 
-async function exportTemplate(){
-  const src = tplSource();
+// その専門医の「集計の開始日・終了日」の範囲内の症例
+function entriesFor(trackId){
+  const r = state.settings.range[trackId];
+  return getEntries().filter(e => !r || !((r.from && e.d < r.from) || (r.to && e.d > r.to)));
+}
+async function exportTemplate(kind){
+  kind = KIND_BY[kind] ? kind : 'base';
+  const src = tplSource(kind);
   if (src == null) {
-    toast('先に、研修手帳の様式ファイル（学会配布のExcel）を選んでください。');
+    toast('先に、研修手帳の様式ファイル（' + KIND_BY[kind].file + '、学会配布のExcel）を選んでください。');
     if (!ui.asMember && ui.view !== 'export') { ui.view = 'export'; render(); }
     return;
   }
   if (typeof JSZip === 'undefined') { toast('様式のExcelを作る部品（JSZip）を読み込めませんでした。ネットワークを確認して、ページを開き直してください。'); return; }
-  const entries = getEntries();
-  if (!entries.length) { toast('症例がまだありません。'); return; }
+  const entries = entriesFor(KIND_BY[kind].track);
+  if (!entries.length) { toast(getEntries().length ? '集計の期間内に、症例がありません（設定で期間を確認してください）。' : '症例がまだありません。'); return; }
   try {
-    const r = await buildTemplateXlsx(JSZip, entries, state.settings, src);
-    const ok = await saveFile(fname('研修手帳', 'xlsx'), new Blob([r.bytes], {type: XLSX_MIME}), XLSX_MIME);
+    const r = await buildTemplateXlsx(JSZip, entries, state.settings, src, kind);
+    const ok = await saveFile(fname(kind === 'base' ? '研修手帳' : kind === 'diag' ? '研修手帳診断' : '研修手帳治療', 'xlsx'), new Blob([r.bytes], {type: XLSX_MIME}), XLSX_MIME);
     const w = reportWarnings(r.report);
     if (ok && w.length && ui.view !== 'export') setTimeout(() => toast(w[0] + (w.length > 1 ? '（ほか' + (w.length - 1) + '件の注意があります）' : '')), 2200);
   } catch (e) {
@@ -3016,8 +3304,8 @@ function onAct(a, b){
       }
       break;
     }
-    case 'tpl': exportTemplate(); break;
-    case 'tplforget': tplForget(); break;
+    case 'tpl': exportTemplate(b.dataset.k); break;
+    case 'tplforget': tplForget(b.dataset.k); break;
     case 'slot': { const no = Number(b.dataset.no); ui.dzSlot = ui.dzSlot === no ? null : no; ui.slotQ = ''; renderDz(); break; }
     case 'slotnew': newForSlot(Number(b.dataset.no)); break;
     case 'slotpick': assignSlot(b.dataset.id, ui.dzSlot); break;
@@ -3106,12 +3394,12 @@ function bindEvents(){
     } else if (id === 'facForm') {
       ev.preventDefault();
       if (readOnly()) return;
-      const n = cleanTxt($('facName').value, 40), c = $('facCode').value.normalize('NFKC').replace(/\s/g, ''), msg = $('facMsg');
+      const n = cleanTxt($('facName').value, 40), c = $('facCode').value.normalize('NFKC').replace(/\s/g, ''), k = cleanTxt($('facNo').value.normalize('NFKC'), 12), msg = $('facMsg');
       if (!n) { msg.textContent = '施設名を入力してください。'; return; }
       if (c && !/^\d{9}$/.test(c)) { msg.textContent = '施設コードは9桁の数字で入力してください（空欄でも登録できます）。'; return; }
       if (state.settings.facs.some(f => f.n === n)) { msg.textContent = 'その施設はすでに登録されています。'; return; }
       if (state.settings.facs.length >= 8) { msg.textContent = '登録できる施設は8件までです。'; return; }
-      state.settings.facs.push({n: n, c: c});
+      state.settings.facs.push(k ? {n: n, c: c, k: k} : {n: n, c: c});
       saveSettings(); renderSettings();
     } else if (id === 'pwForm') {
       ev.preventDefault();
@@ -3128,6 +3416,7 @@ function bindEvents(){
     if (t.id === 'fImp') { onImpFile(t.files[0]); t.value = ''; return; }
     if (t.id === 'fRestore') { onRestoreFile(t.files[0]); t.value = ''; return; }
     if (t.id === 'fTpl') { onTplFile(t.files[0]); t.value = ''; return; }
+    if (t.id === 'fTech') { updateRtFields(); return; }
     if (t.id === 'logCat') { ui.logLimit = 60; renderLog(); return; }
     if (t.id === 'dzOnly') { renderDz(); return; }
     if (t.id === 'aCohort') { ui.aCohort = t.value; try { localStorage.setItem('senmoni-case-counter.cohort', t.value); } catch (e) {} renderAOverview(); return; }
@@ -3175,6 +3464,7 @@ function bindEvents(){
     const id = ev.target.id;
     if (id === 'logQ') { ui.logLimit = 60; renderLog(); }
     else if (id === 'dzQ') renderDz();
+    else if (id === 'fDs' || id === 'fFx') { const d = Number($('fDs').value), f = Number($('fFx').value); $('fTd').placeholder = d > 0 && f > 0 ? '空欄なら ' + Math.round(d * f * 100) / 100 : ''; }
     else if (id === 'aq') renderAOverview();
     else if (id === 'slotQ') { ui.slotQ = ev.target.value; const pk = $('slotPick'); if (pk) pk.innerHTML = slotPickHtml(); }
   });

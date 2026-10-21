@@ -214,7 +214,8 @@ async function saveFile(name, data, mime){
 
 /* ---------- 様式ファイル（GitHub版: 利用者が学会配布のxlsxを読み込む） ---------- */
 const TPL_EMBEDDED = typeof TPL_B64 === 'string' && TPL_B64.length > 1000;      // 様式を内蔵した版か
-const tplStore = {file: null, saved: false};                                  // file: {name, size, bytes(Uint8Array)}
+const tplStore = {files: {}, saved: {}};                                      // files[種類] = {name, size, bytes(Uint8Array)}。種類: base / diag / rt
+const TPL_IDB_KEY = {base: 'tpl', diag: 'tpl-diag', rt: 'tpl-rt'};            // base の 'tpl' は、以前の版で保存したものと同じ場所
 function tplDb(){
   return new Promise((resolve, reject) => {
     try {
@@ -238,15 +239,17 @@ async function tplIdb(mode, fn){
   } finally { db.close(); }
 }
 async function tplLoadSaved(){
-  if (TPL_EMBEDDED) return;
-  try {
-    const r = await tplIdb('readonly', st => st.get('tpl'));
-    if (r && r.bytes && r.name) { tplStore.file = {name: String(r.name), size: r.size || r.bytes.byteLength, bytes: new Uint8Array(r.bytes)}; tplStore.saved = true; }
-  } catch (e) {}
+  for (const k of Object.keys(TPL_IDB_KEY)) {
+    if (k === 'base' && TPL_EMBEDDED) continue;
+    try {
+      const r = await tplIdb('readonly', st => st.get(TPL_IDB_KEY[k]));
+      if (r && r.bytes && r.name) { tplStore.files[k] = {name: String(r.name), size: r.size || r.bytes.byteLength, bytes: new Uint8Array(r.bytes)}; tplStore.saved[k] = true; }
+    } catch (e) {}
+  }
 }
-async function tplPersist(){
-  const f = tplStore.file;
-  try { await tplIdb('readwrite', st => st.put({name: f.name, size: f.size, bytes: f.bytes.slice().buffer, at: Date.now()}, 'tpl')); tplStore.saved = true; }
-  catch (e) { tplStore.saved = false; }
+async function tplPersist(kind){
+  const f = tplStore.files[kind];
+  try { await tplIdb('readwrite', st => st.put({name: f.name, size: f.size, bytes: f.bytes.slice().buffer, at: Date.now()}, TPL_IDB_KEY[kind])); tplStore.saved[kind] = true; }
+  catch (e) { tplStore.saved[kind] = false; }
 }
-function tplSource(){ return TPL_EMBEDDED ? TPL_B64 : (tplStore.file ? tplStore.file.bytes : null); }
+function tplSource(kind){ kind = kind || 'base'; if (kind === 'base' && TPL_EMBEDDED) return TPL_B64; return tplStore.files[kind] ? tplStore.files[kind].bytes : null; }

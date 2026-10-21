@@ -17,7 +17,6 @@ function startEdit(id){
   $('editBar').hidden = false; $('btnSave').textContent = '更新'; $('entryTitle').textContent = '症例を編集';
   render();
   fillForm(e);
-  $('fTech').value = e.t || '';
   $('nHint').hidden = !(e.n > 1);
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   $('entry').scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'start'});
@@ -88,13 +87,20 @@ function fillForm(e){
   $('fPart').value = e.p || ''; $('fKind').value = e.q || ''; $('fReq').value = e.r || '';
   $('fProc').value = e.h || ''; $('fRole').value = e.ro || ''; $('fDxOnly').checked = !!e.o;
   $('fTx').value = e.tx || ''; $('fDz').value = e.z || '';
+  $('fTech').value = rtKindId(e); $('fRoleRt').value = e.ro || ''; $('fRtSite').value = e.p || ''; $('fU').value = e.u || '';
+  $('fPu').value = e.pu || ''; $('fNu').value = e.nu || ''; $('fDs').value = e.ds != null ? e.ds : ''; $('fFx').value = e.fx != null ? e.fx : '';
+  $('fTd').value = e.td != null ? e.td : ''; $('fD2').value = e.d2 || ''; $('fAe').value = e.ae || '';
+  $('rtDet').open = !!(e.u || e.p || e.pu || e.nu || e.ds != null || e.fx != null || e.td != null || e.d2 || e.ae);
+  updateRtFields();
   $('fSite').value = e.s || ''; $('fF1').value = e.f1 || ''; $('fF2').value = e.f2 || ''; $('fMemo').value = e.m || '';
   $('fSlot').value = e.k ? String(e.k) : '';
-  document.querySelector('.moredet').open = !!(e.s || e.f1 || e.f2 || e.m);
+  $('moreDet').open = !!(e.s || e.f1 || e.f2 || e.m);
 }
 
 function clearCaseFields(){
   ['fAge', 'fPart', 'fKind', 'fReq', 'fProc', 'fTx', 'fDz', 'fMemo'].forEach(id => { $(id).value = ''; });
+  ['fU', 'fRtSite', 'fNu', 'fDs', 'fFx', 'fTd', 'fD2', 'fAe'].forEach(id => { $(id).value = ''; });
+  $('fTd').placeholder = ''; $('fPu').value = ''; $('fTech').value = ''; $('fRoleRt').value = ''; updateRtFields();
   $('fSex').value = ''; $('fRole').value = ''; $('fDxOnly').checked = false; $('fN').value = 1;
   $('fSlot').value = '';
   $('nHint').hidden = true;
@@ -108,7 +114,15 @@ function formEntry(d){
     if (g === 'img') { raw.p = $('fPart').value.trim(); raw.q = $('fKind').value.trim(); raw.r = $('fReq').value.trim(); raw.k = $('fSlot').value; }
     if (g === 'ivr') { raw.h = $('fProc').value.trim(); raw.ro = $('fRole').value; raw.o = $('fDxOnly').checked; }
   }
-  if (g === 'rt') { raw.t = $('fTech').value; raw.tx = $('fTx').value.trim(); }
+  if (g === 'rt') {
+    const k = RT_KINDS.find(x => x.id === $('fTech').value) || RT_KINDS[0];
+    raw.t = k.t; raw.mt = k.mt; raw.tx = $('fTx').value.trim();
+    if (n === 1) {
+      raw.p = $('fRtSite').value.trim(); raw.u = $('fU').value.trim(); raw.pu = $('fPu').value;
+      raw.ds = $('fDs').value; raw.fx = $('fFx').value; raw.td = $('fTd').value; raw.d2 = $('fD2').value; raw.ae = $('fAe').value.trim();
+      if (k.t === 'brachy') { raw.nu = $('fNu').value.trim(); raw.ro = $('fRoleRt').value; }
+    }
+  }
   return raw;
 }
 
@@ -151,34 +165,41 @@ async function onTplFile(file){
     if (file.size > 8 * 1024 * 1024) throw new Error('ファイルが大きすぎます。');
     if (typeof JSZip === 'undefined') throw new Error('Excelを読む部品を読み込めませんでした。ページを開き直してください。');
     const bytes = new Uint8Array(await file.arrayBuffer());
-    await openTemplate(JSZip, bytes);                                 // 学会の様式として読めるか確認
-    tplStore.file = {name: file.name, size: bytes.length, bytes: bytes};
-    await tplPersist();
-    toast('様式ファイルを読み込みました: ' + file.name);
+    const t = await openTemplate(JSZip, bytes);                       // 学会の様式として読めるか確認し、種類（基本領域・診断・治療）を判別する
+    tplStore.files[t.kind] = {name: file.name, size: bytes.length, bytes: bytes};
+    await tplPersist(t.kind);
+    toast('様式ファイルを読み込みました（' + KIND_BY[t.kind].name + '）: ' + file.name);
   } catch (e) {
-    ui.tplMsg = ((e && e.message) || '読み込めませんでした。') + ' 学会が配布している研修手帳の様式（経験症例記録）のExcelを選んでください。';
+    ui.tplMsg = ((e && e.message) || '読み込めませんでした。') + ' 学会が配布している研修手帳の様式（放射線科専門医の経験症例記録、または診断専門医・治療専門医の専攻医研修手帳）のExcelを選んでください。';
   }
   render();
 }
-async function tplForget(){
-  tplStore.file = null; tplStore.saved = false; ui.tplMsg = '';
-  try { await tplIdb('readwrite', st => st.delete('tpl')); } catch (e) {}
-  render(); toast('保存した様式ファイルを削除しました。');
+async function tplForget(kind){
+  kind = kind || 'base';
+  delete tplStore.files[kind]; delete tplStore.saved[kind]; ui.tplMsg = '';
+  try { await tplIdb('readwrite', st => st.delete(TPL_IDB_KEY[kind])); } catch (e) {}
+  render(); toast('保存した様式ファイル（' + KIND_BY[kind].name + '）を削除しました。');
 }
 
-async function exportTemplate(){
-  const src = tplSource();
+// その専門医の「集計の開始日・終了日」の範囲内の症例
+function entriesFor(trackId){
+  const r = state.settings.range[trackId];
+  return getEntries().filter(e => !r || !((r.from && e.d < r.from) || (r.to && e.d > r.to)));
+}
+async function exportTemplate(kind){
+  kind = KIND_BY[kind] ? kind : 'base';
+  const src = tplSource(kind);
   if (src == null) {
-    toast('先に、研修手帳の様式ファイル（学会配布のExcel）を選んでください。');
+    toast('先に、研修手帳の様式ファイル（' + KIND_BY[kind].file + '、学会配布のExcel）を選んでください。');
     if (!ui.asMember && ui.view !== 'export') { ui.view = 'export'; render(); }
     return;
   }
   if (typeof JSZip === 'undefined') { toast('様式のExcelを作る部品（JSZip）を読み込めませんでした。ネットワークを確認して、ページを開き直してください。'); return; }
-  const entries = getEntries();
-  if (!entries.length) { toast('症例がまだありません。'); return; }
+  const entries = entriesFor(KIND_BY[kind].track);
+  if (!entries.length) { toast(getEntries().length ? '集計の期間内に、症例がありません（設定で期間を確認してください）。' : '症例がまだありません。'); return; }
   try {
-    const r = await buildTemplateXlsx(JSZip, entries, state.settings, src);
-    const ok = await saveFile(fname('研修手帳', 'xlsx'), new Blob([r.bytes], {type: XLSX_MIME}), XLSX_MIME);
+    const r = await buildTemplateXlsx(JSZip, entries, state.settings, src, kind);
+    const ok = await saveFile(fname(kind === 'base' ? '研修手帳' : kind === 'diag' ? '研修手帳診断' : '研修手帳治療', 'xlsx'), new Blob([r.bytes], {type: XLSX_MIME}), XLSX_MIME);
     const w = reportWarnings(r.report);
     if (ok && w.length && ui.view !== 'export') setTimeout(() => toast(w[0] + (w.length > 1 ? '（ほか' + (w.length - 1) + '件の注意があります）' : '')), 2200);
   } catch (e) {
@@ -623,8 +644,8 @@ function onAct(a, b){
       }
       break;
     }
-    case 'tpl': exportTemplate(); break;
-    case 'tplforget': tplForget(); break;
+    case 'tpl': exportTemplate(b.dataset.k); break;
+    case 'tplforget': tplForget(b.dataset.k); break;
     case 'slot': { const no = Number(b.dataset.no); ui.dzSlot = ui.dzSlot === no ? null : no; ui.slotQ = ''; renderDz(); break; }
     case 'slotnew': newForSlot(Number(b.dataset.no)); break;
     case 'slotpick': assignSlot(b.dataset.id, ui.dzSlot); break;
@@ -713,12 +734,12 @@ function bindEvents(){
     } else if (id === 'facForm') {
       ev.preventDefault();
       if (readOnly()) return;
-      const n = cleanTxt($('facName').value, 40), c = $('facCode').value.normalize('NFKC').replace(/\s/g, ''), msg = $('facMsg');
+      const n = cleanTxt($('facName').value, 40), c = $('facCode').value.normalize('NFKC').replace(/\s/g, ''), k = cleanTxt($('facNo').value.normalize('NFKC'), 12), msg = $('facMsg');
       if (!n) { msg.textContent = '施設名を入力してください。'; return; }
       if (c && !/^\d{9}$/.test(c)) { msg.textContent = '施設コードは9桁の数字で入力してください（空欄でも登録できます）。'; return; }
       if (state.settings.facs.some(f => f.n === n)) { msg.textContent = 'その施設はすでに登録されています。'; return; }
       if (state.settings.facs.length >= 8) { msg.textContent = '登録できる施設は8件までです。'; return; }
-      state.settings.facs.push({n: n, c: c});
+      state.settings.facs.push(k ? {n: n, c: c, k: k} : {n: n, c: c});
       saveSettings(); renderSettings();
     } else if (id === 'pwForm') {
       ev.preventDefault();
@@ -735,6 +756,7 @@ function bindEvents(){
     if (t.id === 'fImp') { onImpFile(t.files[0]); t.value = ''; return; }
     if (t.id === 'fRestore') { onRestoreFile(t.files[0]); t.value = ''; return; }
     if (t.id === 'fTpl') { onTplFile(t.files[0]); t.value = ''; return; }
+    if (t.id === 'fTech') { updateRtFields(); return; }
     if (t.id === 'logCat') { ui.logLimit = 60; renderLog(); return; }
     if (t.id === 'dzOnly') { renderDz(); return; }
     if (t.id === 'aCohort') { ui.aCohort = t.value; try { localStorage.setItem('senmoni-case-counter.cohort', t.value); } catch (e) {} renderAOverview(); return; }
@@ -782,6 +804,7 @@ function bindEvents(){
     const id = ev.target.id;
     if (id === 'logQ') { ui.logLimit = 60; renderLog(); }
     else if (id === 'dzQ') renderDz();
+    else if (id === 'fDs' || id === 'fFx') { const d = Number($('fDs').value), f = Number($('fFx').value); $('fTd').placeholder = d > 0 && f > 0 ? '空欄なら ' + Math.round(d * f * 100) / 100 : ''; }
     else if (id === 'aq') renderAOverview();
     else if (id === 'slotQ') { ui.slotQ = ev.target.value; const pk = $('slotPick'); if (pk) pk.innerHTML = slotPickHtml(); }
   });

@@ -5,10 +5,13 @@ const src=fs.readFileSync(SRC+'/logic.js','utf8')+fs.readFileSync(SRC+'/template
 // 学会配布の様式（リポジトリには含まれない）。TPL_XLSX で指定。無ければ様式を使う試験は省略
 const TPL=path.resolve(process.env.TPL_XLSX||path.join(dir,'fixtures','template.xlsx'));
 const TPL_BYTES=fs.existsSync(TPL)?fs.readFileSync(TPL):null;
+// 診断専門医・治療専門医の専攻医研修手帳（同じく学会配布・リポジトリには含まれない）。TPL_DIAG / TPL_RT で指定
+const rdOpt=(env,def)=>{ const f=path.resolve(process.env[env]||path.join(dir,'fixtures',def)); return fs.existsSync(f)?fs.readFileSync(f):null; };
+const DIAG_BYTES=rdOpt('TPL_DIAG','diag.xlsx'), RT_BYTES=rdOpt('TPL_RT','rt.xlsx');
 const names=['suggestCat','parseDelimited','parseDateLoose','guessHeaderRow','headerList','guessCols','scanImport','aggregateImport','importEntries','impId','sanitizeImp','sanitizeSettings','defaultSettings','isPrivateHeader','sanitizeEntry','tally','progress','summarize','TRACKS','CATS','cleanMonths','parseAge','parseSex','scrubText','buildCaseImport','caseImportEntries','isImpId','toCSV','ENTRY_HEAD','entryRow','parseBackup',
- 'SLOTS','slotAreas','slotMap','slotLabel','daysUntil','paceOf','examState','nextExam','makeSummary','sanitizeSummary','buildTemplateData','reportWarnings','fillSheetXml','buildTemplateXlsx','openTemplate','checkTemplateZip','dateSerial','expandCases','pickCap','TPL_SLOTS','TPL_SHEETS','TPL_AREAS','TPL_RT_SITES','IMP_ROLE_KEYS','goalOf','allEntries'];
+ 'SLOTS','slotAreas','slotMap','slotLabel','daysUntil','paceOf','examState','nextExam','makeSummary','sanitizeSummary','buildTemplateData','reportWarnings','fillSheetXml','buildTemplateXlsx','openTemplate','checkTemplateZip','dateSerial','expandCases','pickCap','TPL_SLOTS','TPL_SHEETS','TPL_AREAS','TPL_RT_SITES','IMP_ROLE_KEYS','goalOf','allEntries','buildDiagData','buildRtData','buildKindData','extendSheetXml','lastNumRow','RT_KINDS','RT_MT','RT_PURPOSES','rtKindId','TPL_KINDS','NB','numIn','isMonth'];
 const L=new Function(src+'\nreturn {'+names.join(',')+'};')();
-let n=0; function t(name,fn){ try{fn();n++;console.log('ok  ',name);}catch(e){console.log('FAIL',name,'\n   ',e.stack.split('\n').slice(0,4).join('\n    '));process.exitCode=1;} }
+let n=0; function t(name,fn){ try{fn();n++;console.log('ok  ',name);}catch(e){console.log('FAIL',name,'\n   ',(process.env.FULL?e.message.split('\n').slice(0,60):e.stack.split('\n').slice(0,4)).join('\n    '));process.exitCode=1;} }
 
 t('suggestCat: modality codes and Japanese names',()=>{
   const c=(s,e)=>assert.strictEqual(L.suggestCat(s),e,s);
@@ -263,6 +266,73 @@ t('CSV / backup roundtrip with new fields',()=>{
   const b=L.parseBackup(JSON.stringify({app:'senmoni-case-counter',v:1,months:{'m-2025-04':{a1xx:{d:'2025-04-01',c:'ct',n:1,a:45,x:'M',k:7,z:'肺癌',c2:1}}},settings:{cohort:2024}}));
   assert.strictEqual(b.n,1); assert.strictEqual(b.months['m-2025-04'].a1xx.k,7); assert.strictEqual(b.settings.cohort,2024);
 });
+t('放射線治療の詳細項目: 範囲チェック・術/助は小線源のみ・治療種別の対応',()=>{
+  const base={d:'2025-05-01',c:'rt_abd',n:1};
+  const e=L.sanitizeEntry(Object.assign({},base,{t:'imrt',mt:'IMRT',pu:'根治',ds:'2.5',fx:'30',td:'75',d2:'2025-07',ae:' 軽度の排尿障害 ',u:'泌尿器科',p:'骨盤部',nu:'192-Ir',ro:'術'}));
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(e)),{d:'2025-05-01',c:'rt_abd',n:1,t:'imrt',mt:'IMRT',pu:'根治',ds:2.5,fx:30,td:75,d2:'2025-07',ae:'軽度の排尿障害',u:'泌尿器科',p:'骨盤部',nu:'192-Ir'});   // 術/助は小線源のときだけ
+  const b=L.sanitizeEntry(Object.assign({},base,{t:'brachy',mt:'密封小線源治療',ro:'助',nu:'192-Ir'})); assert.strictEqual(b.ro,'助'); assert.strictEqual(b.nu,'192-Ir');
+  const bad=L.sanitizeEntry(Object.assign({},base,{mt:'ナニカ',pu:'不明',ds:'0',fx:'100',td:'-1',d2:'2025-13'}));
+  ['mt','pu','ds','fx','td','d2'].forEach(k=>assert.strictEqual(bad[k],undefined,k));
+  assert.strictEqual(L.sanitizeEntry({d:'2025-05-01',c:'ct',n:1,pu:'根治',ds:2,u:'x',ae:'y'}).pu,undefined);          // 治療以外には付かない
+  assert.strictEqual(L.numIn('2.555',0,10,2),2.56); assert.strictEqual(L.numIn('',0,10,2),null); assert.ok(L.isMonth('2025-12')&&!L.isMonth('2025-00')&&!L.isMonth('1999-01')&&!L.isMonth('2025-1'));
+  assert.deepStrictEqual(L.RT_KINDS.filter(k=>k.id).map(k=>[k.id,k.t]).slice(0,3),[['3dcrt',''],['imrt','imrt'],['srt_h','srt']]);
+  assert.strictEqual(L.rtKindId({t:'imrt',mt:'IMRT'}),'imrt'); assert.strictEqual(L.rtKindId({t:'srt',mt:'体幹部定位放射線照射'}),'srt_b'); assert.strictEqual(L.rtKindId({t:'srt'}),'srt');
+  assert.strictEqual(L.rtKindId({t:'imrt'}),'imrt'); assert.strictEqual(L.rtKindId({mt:'3DCRT'}),'3dcrt'); assert.strictEqual(L.rtKindId({}),''); assert.strictEqual(L.rtKindId({t:'hp'}),'hp');
+  assert.strictEqual(L.rtKindId({t:'special',mt:'粒子線治療'}),'particle'); assert.strictEqual(L.rtKindId({t:'special'}),'special');
+  const st=L.sanitizeSettings({facs:[{n:'A病院',c:'123456789',k:'総-12'},{n:'B病院',c:'x',k:'  '},{n:'C',k:'総－１２'}]});
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(st.facs)),[{n:'A病院',c:'123456789',k:'総-12'},{n:'B病院',c:''},{n:'C',c:'',k:'総-12'}]);   // 全角はNFKCで半角に
+  const row=L.entryRow(Object.assign({id:'x'},e)); assert.strictEqual(row.length,L.ENTRY_HEAD.length); assert.strictEqual(row[L.ENTRY_HEAD.indexOf('1回線量(Gy)')],2.5); assert.strictEqual(row[L.ENTRY_HEAD.indexOf('治療種別')],'IMRT');
+});
+t('extendSheetXml: 行を足す（最後の行の複製・番号・後ろの行のずらし・結合セル・範囲）',()=>{
+  const row=(r,a,extra,s)=>'<row r="'+r+'" spans="1:3"><c r="A'+r+'" s="'+s+'"><v>'+a+'</v></c><c r="B'+r+'" s="7" t="s"><v>5</v></c><c r="C'+r+'" s="8"/>'+(extra||'')+'</row>';
+  const xml='<worksheet><dimension ref="A1:C9"/><sheetData><row r="5"><c r="A5" t="s"><v>0</v></c></row>'+row(6,1,'',63)+row(7,2,'',63)+row(8,3,'',51)+'<row r="9"><c r="A9" t="s"><v>9</v></c></row></sheetData><mergeCells count="2"><mergeCell ref="A1:C2"/><mergeCell ref="A9:C9"/></mergeCells></worksheet>';
+  assert.strictEqual(L.lastNumRow(xml),8);
+  assert.strictEqual(L.extendSheetXml(xml,8).added,0); assert.strictEqual(L.extendSheetXml(xml,8).xml,xml); assert.strictEqual(L.extendSheetXml(xml,3).added,0);
+  const r=L.extendSheetXml(xml,11); assert.strictEqual(r.added,3);
+  const x=r.xml, rows=[...x.matchAll(/<row r="(\d+)"/g)].map(m=>Number(m[1]));
+  assert.deepStrictEqual(rows,[5,6,7,8,9,10,11,12]);                          // 8行目の後ろに3行、注記の行(9)は12へ
+  assert.ok(/<row r="12"[^>]*><c r="A12" t="s"><v>9<\/v>/.test(x));
+  assert.ok(/<row r="8"[^>]*><c r="A8" s="63"><v>3<\/v>/.test(x),'元の最終行は途中の行の書式になる');
+  assert.ok(/<row r="11"[^>]*><c r="A11" s="51"><v>6<\/v><\/c><c r="B11" s="7" t="s">/.test(x),'新しい最終行は元の最終行の書式・番号は続き');
+  assert.ok(/<row r="9"[^>]*><c r="A9" s="63"><v>4<\/v>/.test(x));
+  assert.ok(x.includes('<mergeCell ref="A12:C12"/>')&&x.includes('<mergeCell ref="A1:C2"/>')&&x.includes('<dimension ref="A1:C12"/>'));
+  assert.strictEqual(L.extendSheetXml('<worksheet><sheetData><row r="5"/></sheetData></worksheet>',20).added,0);   // 番号つきの行がなければ何もしない
+});
+t('buildDiagData: 列の対応・件数の展開・行の追加見込み',()=>{
+  const st=L.sanitizeSettings({me:'自分',sv:'指導医',facs:[{n:'A病院',c:'123456789',k:'総-12'},{n:'B病院'}]});
+  const es=[
+    {id:'a',d:'2025-03-02',c:'ct',n:1,a:50,x:'F',p:'胸腹部',q:'造影',r:'精査',z:'肝癌',s:'A病院'},
+    {id:'b',d:'2025-03-01',c:'ct',n:2,s:'B病院'},
+    {id:'c',d:'2025-03-03',c:'ivr_n',n:1,a:70,x:'M',z:'胆管炎',h:'PTCD',ro:'助',o:1,f1:'術者A',f2:'確認B'},
+    {id:'d',d:'2025-03-04',c:'rt_head',n:1}];
+  const D=L.buildDiagData(es.map(e=>Object.assign({},e,L.sanitizeEntry(e))),st);
+  assert.deepStrictEqual(D.sheets.ct[6],{B:'B病院',C:'20250301',D:undefined,E:undefined,F:undefined,G:undefined,H:undefined,I:undefined,J:'自分',K:'指導医'});     // 日付の古い順。施設番号が無ければ施設名
+  assert.deepStrictEqual(D.sheets.ct[8],{B:'総-12',C:'20250302',D:50,E:'F',F:'胸腹部',G:'造影',H:'精査',I:'肝癌',J:'自分',K:'指導医'});
+  assert.deepStrictEqual(D.sheets.ivr[6],{B:'総-12',C:'20250303',D:70,E:'M',F:'胆管炎',G:'PTCD',H:'非血管系',I:'○',J:'術者A',K:'助',L:'確認B'});
+  assert.strictEqual(D.report.counts.ct,3); assert.strictEqual(D.need.ct,8); assert.strictEqual(D.report.expanded,1); assert.strictEqual(D.report.noNo,2); assert.deepStrictEqual(D.report.added,{});
+  assert.strictEqual(D.sheets.rt,undefined);                                  // 治療の記録は診断の手帳に出さない
+  const many=[]; for(let i=0;i<620;i++) many.push({id:'m'+i,d:'2025-01-01',c:'ct',n:1}); for(let i=0;i<34;i++) many.push({id:'v'+i,d:'2025-01-01',c:'ivr_v',n:1});
+  const M=L.buildDiagData(many,st); assert.deepStrictEqual(M.report.added,{ct:17,ivr:1}); assert.ok(/CTは様式の行数を超えた[\s\S]*17 行/.test(L.reportWarnings(M.report).join('\n')));
+});
+t('buildRtData: 部位別と技術別の列・重複・上限',()=>{
+  const st=L.sanitizeSettings({me:'自分',sv:'指導医',facs:[{n:'A病院',k:'総-12'}]});
+  let seq=0; const mk=o=>Object.assign({id:'r'+String(++seq).padStart(4,'0')},L.sanitizeEntry(Object.assign({d:'2025-04-05',n:1,a:60,x:'M',z:'前立腺癌',u:'泌尿器科',p:'骨盤部',pu:'根治',ds:2,fx:30,d2:'2025-06',ae:'軽度の排尿障害',s:'A病院'},o)));
+  const es=[mk({c:'rt_abd',t:'imrt',mt:'IMRT'}),mk({c:'rt_chest',t:'brachy',mt:'密封小線源治療',nu:'192-Ir',ro:'助',ds:6,fx:4,td:24,z:'子宮頸癌'}),mk({c:'rt_msk',t:'special',tx:'全身照射',z:'白血病'}),mk({c:'rt_head',t:'hp'}),mk({c:'rt_abd',z:'肝癌',ds:null,fx:null,pu:undefined}),{id:'x',d:'2025-04-05',c:'ct',n:1}];
+  const R=L.buildRtData(es,st), S=R.sheets;
+  assert.deepStrictEqual(S.abd[7],{B:'総-12',C:60,D:'M',E:'泌尿器科',F:'前立腺癌',G:'骨盤部',H:'IMRT',I:'根治',J:'2 Gy',K:'30回',L:'60 Gy',M:L.dateSerial('2025-04-05'),N:L.dateSerial('2025-06-01'),O:'軽度の排尿障害',P:'自分',Q:'',S:'指導医'});
+  assert.deepStrictEqual(S.chest[7],{B:'総-12',C:60,D:'M',E:'泌尿器科',F:'子宮頸癌',G:'骨盤部',H:'密封小線源治療',I:'根治',J:'6 Gy',K:'4回',L:'24 Gy',M:L.dateSerial('2025-04-05'),N:L.dateSerial('2025-06-01'),O:'軽度の排尿障害',P:'自分',Q:'（助）',S:'指導医'});
+  assert.deepStrictEqual(S.brachy[7],{B:'総-12',C:60,D:'M',E:'泌尿器科',F:'子宮頸癌',G:'骨盤部',H:'根治',I:'192-Ir',J:'4回',K:'24 Gy',L:L.dateSerial('2025-04-05'),M:'軽度の排尿障害',N:'自分',O:'（助）',Q:'指導医'});
+  assert.deepStrictEqual(S.imrt[6],{B:'総-12',C:60,D:'M',E:'泌尿器科',F:'前立腺癌',G:'骨盤部',H:'根治',I:'30回',J:'60 Gy',K:L.dateSerial('2025-04-05'),L:L.dateSerial('2025-06-01'),M:'軽度の排尿障害',N:'自分',Q:'指導医'});
+  assert.strictEqual(S.special[6].G,'全身照射'); assert.strictEqual(S.msk[7].H,'全身照射');                    // 治療法が種別欄にも入る
+  assert.strictEqual(S.srt[6],undefined); assert.strictEqual(Object.keys(S.imrt).length,1);
+  assert.strictEqual(R.report.hpSkipped,1); assert.strictEqual(R.report.noDetail,1); assert.strictEqual(R.report.total,5); assert.strictEqual(R.report.noNo,0);
+  assert.deepStrictEqual(R.report.counts,{head:1,chest:1,abd:2,msk:1,brachy:1,imrt:1,srt:0,special:1});
+  assert.ok(R.sheets.ct===undefined);
+  const w=L.reportWarnings(R.report).join('\n'); assert.ok(/高精度（強度変調・定位の区別なし）」の記録 1 件/.test(w)); assert.ok(/目的・照射回数が未入力の症例が 1 件/.test(w));
+  const noMe=L.buildRtData([mk({c:'rt_abd'})],L.sanitizeSettings({})); assert.strictEqual(noMe.report.noMe,1); assert.ok(/初期治療医[\s\S]*小計/.test(L.reportWarnings(noMe.report).join()));
+  const many=[]; for(let i=0;i<40;i++) many.push(mk({c:'rt_abd',t:'imrt'})); const M=L.buildRtData(many,st);
+  assert.strictEqual(M.report.cut.imrt,7); assert.strictEqual(Object.keys(M.sheets.imrt).length,33); assert.strictEqual(M.report.counts.abd,40);
+});
 (async()=>{
   const JSZip=require('jszip');
   await new Promise(r=>setTimeout(r,0));
@@ -300,6 +370,65 @@ t('CSV / backup roundtrip with new fields',()=>{
     assert.strictEqual(r.report.slots,18); assert.ok(r.bytes.length>100000);
     // 元の様式は書き換えていない（同じバイト列から何度でも作れる）
     const r2=await L.buildTemplateXlsx(JSZip,es,ST,TPL_BYTES); assert.strictEqual(r2.bytes.length,r.bytes.length);
+  });
+  const asNb=async(name,bytes,fn)=>{ if(!bytes){ console.log('skip',name,'（TPL_DIAG / TPL_RT が無い）'); return; } await as(name,()=>fn(bytes)); };
+  const XLSX=require('xlsx');
+  const cells=(bytes,sheet)=>{ const wb=XLSX.read(bytes,{cellDates:false,cellNF:true}); const key=wb.SheetNames.find(n=>n.replace(/\s/g,'')===sheet.replace(/\s/g,'')); assert.ok(key,'sheet '+sheet); return wb.Sheets[key]; };
+  const v=(ws,a)=>ws[a]&&ws[a].v;
+  await as('openTemplate: 3種類の様式を自動で判別する（基本領域の様式 → base）',async()=>{ assert.strictEqual((await L.openTemplate(JSZip,TPL_BYTES)).kind,'base'); });
+  await asNb('openTemplate: 診断専門医の専攻医研修手帳 → diag',DIAG_BYTES,async b=>{
+    const t=await L.openTemplate(JSZip,b); assert.strictEqual(t.kind,'diag'); assert.deepStrictEqual(Object.keys(t.files).sort(),Object.keys(L.NB.diag.sheets).sort());
+    for(const k of Object.keys(L.NB.diag.sheets)) assert.strictEqual(L.lastNumRow(t.xml[k])-L.NB.diag.first+1,L.NB.diag.sheets[k].cap,k+' の様式の行数');
+  });
+  await asNb('openTemplate: 治療専門医の専攻医研修手帳 → rt',RT_BYTES,async b=>{
+    const t=await L.openTemplate(JSZip,b); assert.strictEqual(t.kind,'rt'); assert.deepStrictEqual(Object.keys(t.files).sort(),Object.keys(L.NB.rt.sheets).sort());
+    for(const k of Object.keys(L.NB.rt.sheets)){ const S=L.NB.rt.sheets[k]; assert.strictEqual(L.lastNumRow(t.xml[k])-S.first+1,S.cap,k+' の様式の行数'); }
+  });
+  await asNb('openTemplate(診断・治療): 名前を変えたシート・版の違いは受け付けない',DIAG_BYTES,async b=>{
+    const m=async(bytes,fn)=>{ const z=await JSZip.loadAsync(bytes); await fn(z); return z.generateAsync({type:'uint8array'}); };
+    await rej('diag renamed sheet',()=>m(b,async z=>{ z.file('xl/workbook.xml',(await z.file('xl/workbook.xml').async('string')).replace('形成評価（Ⅳ.経験B.CT）','別の名前')); }),/シート「形成評価（Ⅳ\.経験B\.CT）」が見つかりません/);
+    await rej('diag changed header',()=>m(b,async z=>{ z.file('xl/sharedStrings.xml',(await z.file('xl/sharedStrings.xml').async('string')).split('研修指導医確認').join('指導医')); }),/様式の内容が想定と違います/);
+    if(RT_BYTES) await rej('rt changed header',()=>m(RT_BYTES,async z=>{ z.file('xl/sharedStrings.xml',(await z.file('xl/sharedStrings.xml').async('string')).split('初期治療医').join('治療医')); }),/様式の内容が想定と違います/);
+    let threw=false; try{ await L.buildTemplateXlsx(JSZip,[{id:'q',d:'2025-01-01',c:'ct',n:1}],ST,b,'rt'); }catch(e){ threw=/「診断専門医」の様式です/.test(e.message); }
+    assert.ok(threw,'種類が違う様式は、はっきり断る');
+  });
+  await asNb('buildTemplateXlsx(診断): 書き込み・CTは行を追加・IVRの注記は下へ・他のシートは変わらない',DIAG_BYTES,async b=>{
+    const st=L.sanitizeSettings({me:'自分',sv:'指導医',facs:[{n:'A病院',k:'総-12'}]}), es=[];
+    for(let i=0;i<610;i++) es.push({id:'c'+i,d:'2025-03-'+String(1+i%28).padStart(2,'0'),c:'ct',n:1,a:30+i%40,x:i%2?'F':'M',p:'胸腹部',q:'造影',r:'依頼<'+i+'>&',z:'診断'+i,s:'A病院'});
+    for(let i=0;i<35;i++) es.push({id:'v'+i,d:'2025-04-01',c:i<20?'ivr_v':'ivr_n',n:1,a:60,x:'M',z:'肝癌',h:'TACE',ro:'術',o:i===0?1:0});
+    es.push({id:'g',d:'2025-02-01',c:'gi',n:1,a:40,x:'M'});
+    const r=await L.buildTemplateXlsx(JSZip,es,st,b);
+    assert.strictEqual(r.kind,'diag'); assert.deepStrictEqual(r.report.added,{ct:7,ivr:2}); assert.strictEqual(r.report.counts.ct,610);
+    const ct=cells(r.bytes,'形成評価（Ⅳ.経験B.CT）');
+    assert.strictEqual(v(ct,'A6'),1); assert.strictEqual(v(ct,'B6'),'総-12'); assert.strictEqual(v(ct,'C6'),'20250301'); assert.strictEqual(v(ct,'J6'),'自分'); assert.strictEqual(v(ct,'K6'),'指導医');
+    assert.strictEqual(v(ct,'A615'),610); assert.ok(/依頼<\d+>&/.test(v(ct,'H615'))); assert.strictEqual(v(ct,'A616'),undefined); assert.strictEqual(v(ct,'A5'),'例');
+    assert.strictEqual(ct['!ref'],'A1:K615');
+    const ivr=cells(r.bytes,'形成評価（Ⅳ.経験 C.IVR）');
+    assert.strictEqual(v(ivr,'H6'),'血管系'); assert.strictEqual(v(ivr,'H25'),'非血管系'); assert.strictEqual(v(ivr,'I6'),'○'); assert.strictEqual(v(ivr,'K6'),'術');
+    assert.strictEqual(v(ivr,'A40'),35); assert.ok(/^IVRについては/.test(v(ivr,'A41')),'注記の行は2行下へ'); assert.strictEqual(v(ivr,'A39'),34);
+    assert.strictEqual(v(cells(r.bytes,'形成評価（Ⅳ.経験B.消化管）'),'D6'),40);
+    // 触っていないシート（表紙・総括）は元のまま
+    const z0=await JSZip.loadAsync(b), z1=await JSZip.loadAsync(r.bytes);
+    for(const f of ['xl/worksheets/sheet1.xml','xl/worksheets/sheet23.xml','xl/sharedStrings.xml','xl/styles.xml']) assert.strictEqual(await z1.file(f).async('string'),await z0.file(f).async('string'),f);
+    assert.ok(/<calcPr [^>]*fullCalcOnLoad="1"/.test(await z1.file('xl/workbook.xml').async('string')),'開いたときに数式を計算し直す');
+    const r2=await L.buildTemplateXlsx(JSZip,es,st,b); assert.strictEqual(r2.bytes.length,r.bytes.length);     // 元の様式は書き換えていない
+  });
+  await asNb('buildTemplateXlsx(治療): 部位別と技術別に書き込む・数式の小計・保護や入力規則は残る',RT_BYTES,async b=>{
+    const st=L.sanitizeSettings({me:'自分',sv:'指導医',facs:[{n:'A病院',k:'総-12'}]});
+    const mk=o=>L.sanitizeEntry(Object.assign({d:'2025-04-05',n:1,a:60,x:'M',z:'前立腺癌',u:'泌尿器科',p:'骨盤部',pu:'根治',ds:2,fx:30,d2:'2025-06',ae:'軽度の排尿障害',s:'A病院'},o));
+    const es=[mk({c:'rt_abd',t:'imrt',mt:'IMRT'}),mk({c:'rt_chest',t:'brachy',mt:'密封小線源治療',nu:'192-Ir',ro:'助',ds:6,fx:4,z:'子宮頸癌'}),mk({c:'rt_head',t:'srt',mt:'頭部定位放射線照射',fx:1,ds:24,p:'頭部'}),mk({c:'rt_msk',t:'special',tx:'全身照射'})].map((e,i)=>Object.assign({id:'t'+i},e));
+    const r=await L.buildTemplateXlsx(JSZip,es,st,b);
+    assert.strictEqual(r.kind,'rt'); assert.deepStrictEqual(r.report.counts,{head:1,chest:1,abd:1,msk:1,brachy:1,imrt:1,srt:1,special:1});
+    const abd=cells(r.bytes,'☆形成評価（Ⅳ.経験症例 A.部位-腹部 骨盤部）');
+    assert.strictEqual(v(abd,'B7'),'総-12'); assert.strictEqual(v(abd,'H7'),'IMRT'); assert.strictEqual(v(abd,'J7'),'2 Gy'); assert.strictEqual(v(abd,'K7'),'30回'); assert.strictEqual(v(abd,'L7'),'60 Gy'); assert.strictEqual(v(abd,'P7'),'自分'); assert.strictEqual(v(abd,'S7'),'指導医');
+    assert.strictEqual(abd.M7.v,L.dateSerial('2025-04-05')); assert.strictEqual(abd.M7.z,'yyyy/m'); assert.strictEqual(abd.N7.v,L.dateSerial('2025-06-01')); assert.strictEqual(v(abd,'A156'),150);
+    assert.ok(/COUNTA\(P7:P156\)/.test(abd.S157.f),'小計の数式は残る');
+    const bra=cells(r.bytes,'☆形成評価（Ⅳ.治療技術 B.技術-密封小線源）'); assert.strictEqual(v(bra,'I7'),'192-Ir'); assert.strictEqual(v(bra,'O7'),'（助）'); assert.strictEqual(v(bra,'K7'),'24 Gy'); assert.strictEqual(v(bra,'J7'),'4回'); assert.strictEqual(v(bra,'N7'),'自分');
+    const srt=cells(r.bytes,'☆形成評価（Ⅳ.治療技術 B.技術-高精度治療-定位放射線照射'); assert.strictEqual(v(srt,'G6'),'頭部'); assert.strictEqual(v(srt,'J6'),'24 Gy');
+    const sp=cells(r.bytes,'☆形成評価（Ⅳ.治療技術 B.技術-特殊治療）'); assert.strictEqual(v(sp,'G6'),'全身照射');
+    const z0=await JSZip.loadAsync(b), z1=await JSZip.loadAsync(r.bytes);
+    for(const f of Object.keys(z0.files).filter(f=>/sheet(14|25)\.xml$/.test(f)||/sharedStrings|styles/.test(f))) assert.strictEqual(await z1.file(f).async('string'),await z0.file(f).async('string'),f);   // 連動研修分などは触らない
+    const x1=await z1.file('xl/worksheets/sheet10.xml').async('string'); assert.ok(/<sheetProtection [^>]*sheet="1"/.test(x1)&&/<dataValidations count="5">/.test(x1),'保護・入力規則は元のまま');
   });
   console.log('\n'+n+' passed');
 })();

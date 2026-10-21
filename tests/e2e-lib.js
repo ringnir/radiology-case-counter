@@ -19,13 +19,19 @@ const EMBEDDED = /const TPL_B64 = "UEsD/.test(INDEX_HTML());
 const TPL = path.resolve(process.env.TPL_XLSX || path.join(DIR, 'fixtures', 'template.xlsx'));
 const HAS_TPL = fs.existsSync(TPL);
 const CAN_TPL = EMBEDDED || HAS_TPL;                       // 様式への書き込みを試験できるか
-// 様式を内蔵していない版では、様式ファイルを選ぶ（内蔵版では何もしない）
-async function ensureTpl(page) {
-  if (EMBEDDED || !HAS_TPL) return;
+// 診断専門医・治療専門医の専攻医研修手帳（同じく学会配布）。TPL_DIAG / TPL_RT で指定
+const TPL_DIAG = path.resolve(process.env.TPL_DIAG || path.join(DIR, 'fixtures', 'diag.xlsx'));
+const TPL_RT = path.resolve(process.env.TPL_RT || path.join(DIR, 'fixtures', 'rt.xlsx'));
+const HAS_DIAG = fs.existsSync(TPL_DIAG), HAS_RT = fs.existsSync(TPL_RT);
+// 様式を内蔵していない版では、様式ファイルを選ぶ（内蔵版の基本領域では何もしない）。kind: base | diag | rt
+async function ensureTpl(page, kind) {
+  kind = kind || 'base';
+  const file = kind === 'diag' ? TPL_DIAG : kind === 'rt' ? TPL_RT : TPL;
+  if (kind === 'base' && (EMBEDDED || !HAS_TPL)) return;
   if (await page.locator('[data-view="export"]').count()) await page.click('[data-view="export"]');
-  if (await page.locator('.tplfile:not(.need)').count()) return;
-  await page.setInputFiles('#fTpl', TPL);
-  await page.waitForSelector('.tplfile:not(.need)');
+  if (await page.locator('[data-act="tplforget"][data-k="' + kind + '"]').count()) return;
+  await page.setInputFiles('#fTpl', file);
+  await page.waitForSelector('[data-act="tplforget"][data-k="' + kind + '"]');
 }
 const SHOT = path.join(OUT, 'shots'); fs.mkdirSync(SHOT, { recursive: true });
 
@@ -78,4 +84,4 @@ async function waitSaved(page) {
 }
 
 
-module.exports = { env, step, newPage, txt, shot, login, waitSaved, errs, DIR, ROOT, OUT, XLSX, APP, EMBEDDED, TPL, HAS_TPL, CAN_TPL, ensureTpl, getN: () => n, code, SHOT };
+module.exports = { env, step, newPage, txt, shot, login, waitSaved, errs, DIR, ROOT, OUT, XLSX, APP, EMBEDDED, TPL, HAS_TPL, CAN_TPL, TPL_DIAG, TPL_RT, HAS_DIAG, HAS_RT, ensureTpl, getN: () => n, code, SHOT };

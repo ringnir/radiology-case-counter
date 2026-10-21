@@ -125,7 +125,7 @@ function pickCap(list, cap){
   return {rows: rows, cut: list.length - rows.length};
 }
 function buildTemplateData(entries, st){
-  const rep = {counts: {}, cut: {}, noAge: 0, noSex: 0, noFac: 0, noCode: 0, slots: 0, slotNoDiag: 0, total: 0, expanded: 0};
+  const rep = {kind: 'base', counts: {}, cut: {}, noAge: 0, noSex: 0, noFac: 0, noCode: 0, slots: 0, slotNoDiag: 0, total: 0, expanded: 0};
   const sheets = {a: {}};
   const all = expandCases(entries);
   const me = st.me || '', sv = st.sv || '';
@@ -182,17 +182,160 @@ function buildTemplateData(entries, st){
   }
   return {sheets: sheets, report: rep};
 }
+/* ---------- 診断専門医・治療専門医の「専攻医研修手帳」（日本専門医機構） ---------- */
+const TPL_KINDS = [
+  {id: 'base', name: '放射線科専門医（基本領域）', track: 'base', file: '経験症例記録の様式'},
+  {id: 'diag', name: '診断専門医', track: 'diag', file: '専攻医研修手帳（放射線診断領域）'},
+  {id: 'rt', name: '治療専門医', track: 'rt', file: '専攻医研修手帳（放射線治療領域）'}
+];
+const KIND_BY = {}; TPL_KINDS.forEach(k => { KIND_BY[k.id] = k; });
+// シート名・先頭の行・様式の行数（cap）。診断の行数は様式の既定値（足りなければ行を追加する）
+const NB = {
+  diag: {
+    first: 6,
+    sheets: {
+      xray: {name: '形成評価（Ⅳ.経験B.単純）', cap: 403}, gi: {name: '形成評価（Ⅳ.経験B.消化管）', cap: 63}, us: {name: '形成評価（Ⅳ.経験B.超音波）', cap: 123},
+      ct: {name: '形成評価（Ⅳ.経験B.CT）', cap: 603}, mri: {name: '形成評価（Ⅳ.経験B.MRI）', cap: 303}, rn: {name: '形成評価（Ⅳ.経験B.核医）', cap: 53},
+      ivr: {name: '形成評価（Ⅳ.経験 C.IVR）', cap: 33}
+    },
+    marks: ['施設番号', '研修指導医確認', '手技・治療法']
+  },
+  rt: {
+    sheets: {
+      head: {name: '☆形成評価（Ⅳ.経験症例 A.部位-頭部・頭頸部）', first: 7, cap: 150, cat: 'rt_head'},
+      chest: {name: '☆形成評価（Ⅳ.経験症例 A.部位-胸部）', first: 7, cap: 150, cat: 'rt_chest'},
+      abd: {name: '☆形成評価（Ⅳ.経験症例 A.部位-腹部 骨盤部）', first: 7, cap: 150, cat: 'rt_abd'},
+      msk: {name: '☆形成評価（Ⅳ.経験症例 A.部位-四肢・皮膚・その他）', first: 7, cap: 150, cat: 'rt_msk'},
+      brachy: {name: '☆形成評価（Ⅳ.治療技術 B.技術-密封小線源）', first: 7, cap: 33, tech: 'brachy'},
+      imrt: {name: '☆形成評価（Ⅳ.治療技術 B.技術-高精度治療-強度変調）', first: 6, cap: 33, tech: 'imrt'},
+      srt: {name: '☆形成評価（Ⅳ.治療技術 B.技術-高精度治療-定位放射線照射', first: 6, cap: 33, tech: 'srt'},
+      special: {name: '☆形成評価（Ⅳ.治療技術 B.技術-特殊治療）', first: 6, cap: 33, tech: 'special'}
+    },
+    marks: ['施設番号', '初期治療医', '照射部位', '核種']
+  }
+};
+function nbNo(f){ return f.k || f.n || ''; }                       // 手帳の「施設番号」: 設定の施設番号。無ければ施設名
+function ymd8(d){ return d.replace(/-/g, ''); }
+function monthSerial(m){ return m ? dateSerial(m + '-01') : ''; }
+function gy(n){ return n == null ? '' : n + ' Gy'; }
+function totalDose(e){ return e.td != null ? e.td : (e.ds != null && e.fx != null ? Math.round(e.ds * e.fx * 100) / 100 : null); }
+function noteCase(rep, e, f){
+  rep.total++;
+  if (e.dup) rep.expanded++;
+  if (e.a == null) rep.noAge++;
+  if (!e.x) rep.noSex++;
+  if (!f.n) rep.noFac++; else if (!f.k) rep.noNo++;
+}
+function newNbReport(kind){ return {kind: kind, counts: {}, cut: {}, added: {}, noAge: 0, noSex: 0, noFac: 0, noNo: 0, noMe: 0, noDetail: 0, hpSkipped: 0, total: 0, expanded: 0}; }
+
+// 診断専門医の専攻医研修手帳: B.検査（単純・消化管・超音波・CT・MRI・核医学）とC.IVR。行が足りなければ書き込み時に行を足す
+function buildDiagData(entries, st){
+  const rep = newNbReport('diag'), first = NB.diag.first, S = NB.diag.sheets;
+  const all = expandCases(entries), me = st.me || '', sv = st.sv || '', sheets = {}, need = {};
+  B_ORDER.forEach(k => {
+    const list = all.filter(e => e.c === k), rows = {};
+    list.forEach((e, i) => {
+      const f = facOf(st, e.s); noteCase(rep, e, f);
+      rows[first + i] = {B: nbNo(f), C: ymd8(e.d), D: e.a, E: e.x, F: e.p, G: e.q, H: e.r, I: e.z, J: e.f1 || me, K: e.f2 || sv};
+    });
+    sheets[k] = rows; need[k] = first - 1 + list.length; rep.counts[k] = list.length;
+  });
+  const list = all.filter(e => e.c === 'ivr_v' || e.c === 'ivr_n'), rows = {};
+  list.forEach((e, i) => {
+    const f = facOf(st, e.s); noteCase(rep, e, f);
+    rows[first + i] = {B: nbNo(f), C: ymd8(e.d), D: e.a, E: e.x, F: e.z, G: e.h, H: e.c === 'ivr_v' ? '血管系' : '非血管系', I: e.o ? '○' : '', J: e.f1 || me, K: e.ro, L: e.f2 || sv};
+  });
+  sheets.ivr = rows; need.ivr = first - 1 + list.length; rep.counts.ivr = list.length;
+  Object.keys(S).forEach(k => { const add = (need[k] || 0) - (first - 1 + S[k].cap); if (add > 0) rep.added[k] = add; });
+  return {sheets: sheets, report: rep, need: need};
+}
+
+// 治療専門医の専攻医研修手帳: 部位別の4シート（A.）と治療技術の4シート（B.）。同じ症例が部位別と技術の両方に入ることがある
+function buildRtData(entries, st){
+  const rep = newNbReport('rt'), S = NB.rt.sheets;
+  const all = expandCases(entries).filter(e => CAT_BY[e.c].g === 'rt'), me = st.me || '', sv = st.sv || '', sheets = {};
+  const fxs = e => e.fx != null ? e.fx + '回' : '';
+  const roS = e => e.ro ? '（' + e.ro + '）' : '';
+  Object.keys(S).filter(k => S[k].cat).forEach(k => {
+    const pc = pickCap(all.filter(e => e.c === S[k].cat), S[k].cap), rows = {};
+    pc.rows.forEach((e, i) => {
+      const f = facOf(st, e.s); noteCase(rep, e, f);
+      if (!(e.f1 || me)) rep.noMe++;
+      if (!e.dup && (!e.pu || e.fx == null)) rep.noDetail++;
+      const kindName = e.mt || e.tx || (e.t === 'imrt' ? 'IMRT' : e.t === 'brachy' ? '密封小線源治療' : '');
+      rows[S[k].first + i] = {B: nbNo(f), C: e.a, D: e.x, E: e.u, F: e.z, G: e.p, H: kindName, I: e.pu, J: gy(e.ds), K: fxs(e), L: gy(totalDose(e)),
+        M: dateSerial(e.d), N: monthSerial(e.d2), O: e.ae, P: e.f1 || me, Q: roS(e), S: e.f2 || sv};
+    });
+    sheets[k] = rows; rep.counts[k] = pc.rows.length; if (pc.cut) rep.cut[k] = pc.cut;
+  });
+  rep.hpSkipped = all.filter(e => e.t === 'hp').length;
+  Object.keys(S).filter(k => S[k].tech).forEach(k => {
+    const pc = pickCap(all.filter(e => e.t === S[k].tech), S[k].cap), rows = {};
+    pc.rows.forEach((e, i) => {
+      const f = facOf(st, e.s), td = totalDose(e);
+      rows[S[k].first + i] = k === 'brachy'
+        ? {B: nbNo(f), C: e.a, D: e.x, E: e.u, F: e.z, G: e.p, H: e.pu, I: e.nu, J: fxs(e), K: gy(td), L: dateSerial(e.d), M: e.ae, N: e.f1 || me, O: roS(e), Q: e.f2 || sv}
+        : {B: nbNo(f), C: e.a, D: e.x, E: e.u, F: e.z, G: k === 'special' ? (e.tx || e.mt || '') : e.p, H: e.pu, I: fxs(e), J: gy(td), K: dateSerial(e.d), L: monthSerial(e.d2), M: e.ae, N: e.f1 || me, Q: e.f2 || sv};
+    });
+    sheets[k] = rows; rep.counts[k] = pc.rows.length; if (pc.cut) rep.cut[k] = pc.cut;
+  });
+  return {sheets: sheets, report: rep, need: {}};
+}
+function buildKindData(kind, entries, st){
+  return kind === 'diag' ? buildDiagData(entries, st) : kind === 'rt' ? buildRtData(entries, st) : buildTemplateData(entries, st);
+}
+
+// 行を足す: 最後の番号つきの行（A列が数字の行）を複製して、必要な行数まで増やす。後ろにある行（注記など）は下へずらす
+function lastNumRow(xml){
+  let last = 0;
+  xml.replace(/<c r="A(\d+)"([^>]*)><v>[^<]*<\/v>/g, (m, r, a) => { if (!/\bt="/.test(a)) last = Math.max(last, Number(r)); return m; });
+  return last;
+}
+function shiftRowRef(ref, from, by){
+  return ref.replace(/([A-Z]+)(\d+)/g, (m, c, r) => c + (Number(r) > from ? Number(r) + by : r));
+}
+function extendSheetXml(xml, need){
+  const last = lastNumRow(xml);
+  if (!last || need <= last) return {xml: xml, added: 0};
+  const extra = need - last;
+  const rowRe = r => new RegExp('<row r="' + r + '"[^>]*?(?:/>|>[\\s\\S]*?</row>)');
+  const lm = rowRe(last).exec(xml), mm = rowRe(last - 1).exec(xml);
+  if (!lm || !mm) return {xml: xml, added: 0};
+  const n0 = Number((/<c r="A\d+"[^>]*><v>(\d+)<\/v>/.exec(lm[0]) || [0, 0])[1]);
+  const clone = (row, r, n) => row.replace(/<row r="\d+"/, '<row r="' + r + '"').replace(/<c r="([A-Z]+)\d+"/g, (m, c) => '<c r="' + c + r + '"')
+    .replace(/(<c r="A\d+"[^>]*><v>)\d+(<\/v>)/, '$1' + n + '$2');
+  let add = '';
+  for (let i = 1; i <= extra; i++) add += clone(i === extra ? lm[0] : mm[0], last + i, n0 + i);
+  const end = lm.index + lm[0].length, close = xml.indexOf('</sheetData>');
+  const tail = xml.slice(end, close).replace(/<row r="(\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, row => {
+    const r = Number(/r="(\d+)"/.exec(row)[1]);
+    return row.replace(/<row r="\d+"/, '<row r="' + (r + extra) + '"').replace(/<c r="([A-Z]+)(\d+)"/g, (m, c, rr) => '<c r="' + c + (Number(rr) + extra) + '"');
+  });
+  let out = xml.slice(0, lm.index) + clone(mm[0], last, n0) + add + tail + xml.slice(close);
+  out = out.replace(/(<mergeCell ref=")([^"]+)(")/g, (m, a, ref, b) => a + shiftRowRef(ref, last, extra) + b)
+    .replace(/<dimension ref="([A-Z]+\d+):([A-Z]+)(\d+)"/, (m, a, c, r) => '<dimension ref="' + a + ':' + c + (Number(r) >= last ? Number(r) + extra : r) + '"');
+  return {xml: out, added: extra};
+}
+
+const SHEET_LABEL = {xray: '単純X線', gi: '消化管', us: '超音波', ct: 'CT', mri: 'MRI', rn: '核医学', ivr: 'IVR', rt: '放射線治療',
+  head: '脳・頭頸部', chest: '胸部', abd: '腹部・骨盤部', msk: '四肢・皮膚・その他', brachy: '密封小線源', imrt: '強度変調', srt: '定位放射線照射', special: '特殊治療'};
 function reportWarnings(rep){
   const w = [];
   if (rep.noFac) w.push('施設名が入っていない症例が ' + rep.noFac + ' 件あります（設定で施設を登録すると入ります）。');
   if (rep.noCode) w.push('施設コード（9桁）が未設定の症例が ' + rep.noCode + ' 件あります。');
+  if (rep.noNo) w.push('施設番号（例: 総-12）が未設定の症例が ' + rep.noNo + ' 件あります。施設名を書き込みました（設定の施設に「施設番号」を入れると、その番号が入ります）。');
   if (rep.noAge) w.push('年齢が未入力の症例が ' + rep.noAge + ' 件あります。');
   if (rep.noSex) w.push('性別が未入力の症例が ' + rep.noSex + ' 件あります。');
+  if (rep.noMe) w.push('初期治療医（自分の氏名）が空の症例が ' + rep.noMe + ' 件あります。様式の「小計」は初期治療医の欄の入力を数えるため、設定で「自分の氏名」を入れてください。');
+  if (rep.noDetail) w.push('目的・照射回数が未入力の症例が ' + rep.noDetail + ' 件あります（様式の項目です。登録画面で入力するか、出力したExcelに直接書き足してください）。');
+  if (rep.hpSkipped) w.push('「高精度（強度変調・定位の区別なし）」の記録 ' + rep.hpSkipped + ' 件は、強度変調か定位か分からないため、治療技術のシートには書き込めませんでした。編集して種別を選び直してください。');
   if (rep.expanded) w.push('件数だけで登録された記録を ' + rep.expanded + ' 行に展開しました（年齢・性別などは空欄です）。');
   if (rep.slotNoDiag) w.push('疾患・病態名が空の疾患群の枠が ' + rep.slotNoDiag + ' 件あります。');
-  Object.keys(rep.cut).forEach(k => {
-    const nm = k === 'ivr' ? 'IVR' : k === 'rt' ? '放射線治療' : (CAT_BY[k] ? CAT_BY[k].short : k);
-    w.push(nm + 'は様式の行数を超えたため、' + rep.cut[k] + ' 件を書き込めませんでした（疾患群に使った症例は優先して残しています）。');
+  Object.keys(rep.added || {}).forEach(k => {
+    if (rep.added[k] > 0) w.push((SHEET_LABEL[k] || k) + 'は様式の行数を超えたため、行を ' + rep.added[k] + ' 行追加して書き込みました（様式の見た目はそのままです）。');
+  });
+  Object.keys(rep.cut || {}).forEach(k => {
+    w.push((SHEET_LABEL[k] || k) + 'は様式の行数を超えたため、' + rep.cut[k] + ' 件を書き込めませんでした' + (rep.kind === 'rt' ? '。' : '（疾患群に使った症例は優先して残しています）。'));
   });
   return w;
 }
@@ -230,9 +373,10 @@ function xmlUnesc(s){
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 }
 const noWs = s => String(s).replace(/[\s　]+/g, '');
-// xlsx（JSZipで開いたもの）が、想定した様式かを調べる。{problems: [...], files: {キー: シートのパス}, xml: {キー: シートXML}}
+// xlsx（JSZipで開いたもの）が、想定した様式かを調べる。{kind, problems: [...], files: {キー: シートのパス}, xml: {キー: シートXML}}
+// kind: 'base'（放射線科専門医の経験症例記録）/ 'diag'（診断専門医の専攻医研修手帳）/ 'rt'（治療専門医の専攻医研修手帳）
 async function checkTemplateZip(zip){
-  const bad = m => ({problems: [m], files: {}, xml: {}});
+  const bad = m => ({kind: '', problems: [m], files: {}, xml: {}});
   const wbf = zip.file('xl/workbook.xml'), rf = zip.file('xl/_rels/workbook.xml.rels');
   if (!wbf || !rf) return bad('Excel（.xlsx）ファイルとして読めませんでした。');
   const wbXml = await wbf.async('string'), relXml = await rf.async('string');
@@ -248,26 +392,39 @@ async function checkTemplateZip(zip){
     if (n && r && target[r[1]]) byName[noWs(xmlUnesc(n[1]))] = target[r[1]];
     return m;
   });
+  const has = n => !!byName[noWs(n)];
+  const rtS = NB.rt.sheets, dgS = NB.diag.sheets;
+  let kind = '';
+  if (has(TPL_SHEETS.a.name)) kind = 'base';
+  else if (Object.keys(rtS).some(k => has(rtS[k].name))) kind = 'rt';
+  else if (has(dgS.xray.name) && has(dgS.ivr.name)) kind = 'diag';
+  if (!kind) return bad('シート「' + TPL_SHEETS.a.name + '」が見つかりません。対応しているのは、放射線科専門医の経験症例記録、診断専門医・治療専門医の専攻医研修手帳です。');
+  const spec = kind === 'base' ? TPL_SHEETS : NB[kind].sheets;
   const problems = [], files = {}, xml = {};
-  const keys = Object.keys(TPL_SHEETS);
-  for (const k of keys) {
-    const path = byName[noWs(TPL_SHEETS[k].name)];
-    if (!path || !zip.file(path)) { problems.push('シート「' + TPL_SHEETS[k].name + '」が見つかりません。'); continue; }
+  for (const k of Object.keys(spec)) {
+    const path = byName[noWs(spec[k].name)];
+    if (!path || !zip.file(path)) { problems.push('シート「' + spec[k].name + '」が見つかりません。'); continue; }
     files[k] = path;
     xml[k] = await zip.file(path).async('string');
-    const need = k === 'a' ? Math.max.apply(null, SLOTS.map(x => x.row)) : 5 + TPL_SHEETS[k].cap;
-    if (xml[k].indexOf('<row r="' + need + '"') < 0) problems.push('「' + TPL_SHEETS[k].name + '」の行数が想定（' + need + '行目まで）と違います。');
+    let need;
+    if (kind === 'base') need = k === 'a' ? Math.max.apply(null, SLOTS.map(x => x.row)) : 5 + spec[k].cap;
+    else if (kind === 'rt') need = spec[k].first + spec[k].cap - 1;
+    else need = NB.diag.first;                                    // 診断は、足りない行を書き込み時に足す
+    if (xml[k].indexOf('<row r="' + need + '"') < 0) problems.push('「' + spec[k].name + '」の行数が想定（' + need + '行目まで）と違います。');
   }
-  if (problems.length) return {problems: problems, files: files, xml: xml};
-  // 疾患群・領域の名前が、様式の中に想定どおり並んでいるか（様式のバージョン違いの検出）
+  if (problems.length) return {kind: kind, problems: problems, files: files, xml: xml};
+  // 様式の版の違いの検出: 基本領域は、疾患群・領域・放射線治療の部位の名前。診断・治療は、項目名
   const sst = zip.file('xl/sharedStrings.xml');
   let text = '';
   if (sst) (await sst.async('string')).replace(/<si>([\s\S]*?)<\/si>/g, (m, inner) => { text += '\n' + noWs(xmlUnesc((inner.match(/<t\b[^>]*>[^<]*<\/t>/g) || []).map(t => t.replace(/<[^>]+>/g, '')).join(''))); return m; });
-  text += '\n' + noWs(xmlUnesc((xml.a.match(/<t\b[^>]*>[^<]*<\/t>/g) || []).map(t => t.replace(/<[^>]+>/g, '')).join('\n')));
-  const names = TPL_AREAS.concat(SLOTS.map(x => x.grp), Object.keys(TPL_RT_SITES).map(k => TPL_RT_SITES[k]));
+  let names;
+  if (kind === 'base') {
+    text += '\n' + noWs(xmlUnesc((xml.a.match(/<t\b[^>]*>[^<]*<\/t>/g) || []).map(t => t.replace(/<[^>]+>/g, '')).join('\n')));
+    names = TPL_AREAS.concat(SLOTS.map(x => x.grp), Object.keys(TPL_RT_SITES).map(k => TPL_RT_SITES[k]));
+  } else names = NB[kind].marks;
   const miss = Array.from(new Set(names)).filter(x => text.indexOf(noWs(x)) < 0);
   if (miss.length) problems.push('様式の内容が想定と違います（「' + miss.slice(0, 3).join('」「') + '」' + (miss.length > 3 ? 'など' + miss.length + '件' : '') + 'が見つかりません）。様式のバージョンが違う可能性があります。');
-  return {problems: problems, files: files, xml: xml};
+  return {kind: kind, problems: problems, files: files, xml: xml};
 }
 // src: base64文字列 / Uint8Array / ArrayBuffer
 async function openTemplate(JSZ, src){
@@ -277,12 +434,28 @@ async function openTemplate(JSZ, src){
   catch (e) { throw new Error('Excel（.xlsx）ファイルとして読み込めませんでした。'); }
   const chk = await checkTemplateZip(zip);
   if (chk.problems.length) { const e = new Error(chk.problems[0]); e.problems = chk.problems; throw e; }
-  return {zip: zip, files: chk.files, xml: chk.xml};
+  return {kind: chk.kind, zip: zip, files: chk.files, xml: chk.xml};
 }
-async function buildTemplateXlsx(JSZ, entries, st, src){
-  const data = buildTemplateData(entries, st);
+// 様式の種類は、ファイルの中身から自動で判別する（kind を渡すと、違う種類のときはエラーにする）
+async function buildTemplateXlsx(JSZ, entries, st, src, kind){
   const t = await openTemplate(JSZ, src == null ? (typeof TPL_B64 === 'string' ? TPL_B64 : '') : src);
-  Object.keys(TPL_SHEETS).forEach(k => { t.zip.file(t.files[k], fillSheetXml(t.xml[k], data.sheets[k] || {})); });
+  if (kind && kind !== t.kind) throw new Error('選んだ様式ファイルは「' + KIND_BY[t.kind].name + '」の様式です（「' + KIND_BY[kind].name + '」ではありません）。');
+  const data = buildKindData(t.kind, entries, st);
+  Object.keys(t.files).forEach(k => {
+    let x = t.xml[k];
+    if (data.need && data.need[k]) {
+      const r = extendSheetXml(x, data.need[k]);
+      x = r.xml;
+      if (r.added > 0) data.report.added[k] = r.added; else delete data.report.added[k];
+    }
+    t.zip.file(t.files[k], fillSheetXml(x, data.sheets[k] || {}));
+  });
+  // 小計・合計の数式は、Excelで開いたときに必ず計算し直させる（書き込む前の計算結果が残らないように）
+  const wbf = t.zip.file('xl/workbook.xml');
+  if (wbf) {
+    const w = await wbf.async('string');
+    t.zip.file('xl/workbook.xml', w.replace(/<calcPr\b([^>]*?)(\/?)>/, (m, a, sl) => /fullCalcOnLoad=/.test(a) ? m : '<calcPr' + a + ' fullCalcOnLoad="1"' + sl + '>'));
+  }
   const bytes = await t.zip.generateAsync({type: 'uint8array', compression: 'DEFLATE', compressionOptions: {level: 6}});
-  return {bytes: bytes, report: data.report};
+  return {bytes: bytes, report: data.report, kind: t.kind};
 }

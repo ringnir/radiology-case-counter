@@ -64,7 +64,7 @@ function renderDrill(){
   el.hidden = false;
   const m = ui.asMember;
   el.innerHTML = '<span><b>' + esc(m.name) + '</b> さんの記録（閲覧のみ）' + (state.settings.cohort ? ' <span class="dim">' + esc(cohortLabel(state.settings.cohort)) + '</span>' : '') + '</span><span class="acts2">' +
-    '<button type="button" class="btn small primary" data-act="tpl">研修手帳の様式で出力</button>' +
+    TPL_KINDS.map(k => '<button type="button" class="btn small' + (k.id === 'base' ? ' primary' : '') + '" data-act="tpl" data-k="' + k.id + '">' + (k.id === 'base' ? '研修手帳（基本領域）' : '研修手帳（' + k.name.replace('専門医', '') + '）') + '</button>').join('') +
     '<button type="button" class="btn small" data-act="xlsx">Excel</button>' +
     '<button type="button" class="btn small" data-act="csv">CSV</button>' +
     '<button type="button" class="btn small" data-act="closeMember">← 全員の一覧へ戻る</button></span>';
@@ -100,6 +100,12 @@ function renderSites(){
   $('fSite').placeholder = state.settings.facs.length ? '空欄なら「' + state.settings.facs[0].n + '」' : '例: ○○病院';
 }
 
+// 密封小線源のときだけ、術者／第一助手と核種の欄を出す
+function updateRtFields(){
+  const k = RT_KINDS.find(x => x.id === $('fTech').value) || RT_KINDS[0], br = k.t === 'brachy';
+  $('roleRtWrap').hidden = !br; $('nuWrap').hidden = !br;
+  if (!br) { $('fRoleRt').value = ''; $('fNu').value = ''; }
+}
 function updateFormForCat(){
   if (!CAT_BY[ui.cat]) ui.cat = 'ct';
   const c = CAT_BY[ui.cat], g = c.g;
@@ -110,7 +116,9 @@ function updateFormForCat(){
   $('lblF2').textContent = g === 'img' ? '確定者（指導医）' : '指導医確認';
   $('fF1').placeholder = state.settings.me ? '空欄なら「' + state.settings.me + '」' : '';
   $('fF2').placeholder = state.settings.sv ? '空欄なら「' + state.settings.sv + '」' : '';
+  if (!$('fTech').options.length) $('fTech').innerHTML = RT_KINDS.map(k => '<option value="' + k.id + '">' + esc(k.label) + '</option>').join('');
   if (g !== 'rt') { $('fTech').value = ''; $('fTx').value = ''; }
+  updateRtFields();
   $('catHint').textContent = GROUP_BY[g].hint;
   $('nHint').hidden = !(Number($('fN').value) > 1);
   $('btnSave').disabled = !state.ready;
@@ -213,29 +221,45 @@ function renderTplFile(){
   const el = $(ui.asMember ? 'drillTpl' : 'tplFile'), other = $(ui.asMember ? 'tplFile' : 'drillTpl');
   if (other) other.innerHTML = '';
   if (!el) return;
-  if (TPL_EMBEDDED) { el.innerHTML = ''; return; }
-  const f = tplStore.file;
   const kb = n => n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
-  el.innerHTML = '<div class="tplfile' + (f ? '' : ' need') + '">' + (f
-    ? '<p>使用する様式: <b>' + esc(f.name) + '</b>（' + kb(f.size) + '）' + (tplStore.saved ? '　このブラウザに保存済み' : '　<span class="dim">この環境では保存できないため、開き直すと選び直しが必要です</span>') + '</p>' +
-      '<div class="row2"><label class="btn small" for="fTpl">別のファイルに変える</label><button type="button" class="btn small" data-act="tplforget">保存した様式を削除</button></div>'
-    : '<p><b>最初に、研修手帳の様式ファイルを選んでください。</b>日本医学放射線学会が配布している、経験症例記録のExcel（.xlsx）です。このアプリには様式ファイルは含まれていません。選んだファイルはこのブラウザの外には送られず、ブラウザの中に保存されるので、次回からは選び直し不要です。</p>' +
+  const any = TPL_KINDS.some(k => tplSource(k.id) != null);
+  const rows = TPL_KINDS.map(k => {
+    const f = tplStore.files[k.id];
+    if (k.id === 'base' && TPL_EMBEDDED) return '<p class="tplrow"><span class="kn">' + esc(k.name) + '</span>様式はこのページに内蔵されています。</p>';
+    if (!f) return '';
+    return '<p class="tplrow"><span class="kn">' + esc(k.name) + '</span>使用する様式: <b>' + esc(f.name) + '</b>（' + kb(f.size) + '）' +
+      (tplStore.saved[k.id] ? '　このブラウザに保存済み' : '　<span class="dim">この環境では保存できないため、開き直すと選び直しが必要です</span>') +
+      ' <button type="button" class="btn small" data-act="tplforget" data-k="' + k.id + '">削除</button></p>';
+  }).join('');
+  el.innerHTML = '<div class="tplfile' + (any ? '' : ' need') + '">' + rows + (any
+    ? '<div class="row2"><label class="btn small" for="fTpl">様式ファイルを追加・変更する</label><span class="dim">基本領域・診断・治療のどれでも選べます（自動で判別します）</span></div>'
+    : '<p><b>最初に、研修手帳の様式ファイルを選んでください。</b>日本医学放射線学会などが配布している、放射線科専門医の経験症例記録のExcel、または診断専門医・治療専門医の専攻医研修手帳のExcel（.xlsx）です。このアプリには様式ファイルは含まれていません。選んだファイルはこのブラウザの外には送られず、ブラウザの中に保存されるので、次回からは選び直し不要です。基本領域・診断・治療のどれでも選べます（自動で判別します）。</p>' +
       '<div class="row2"><label class="btn primary" for="fTpl">様式ファイルを選ぶ</label></div>') +
     '<input id="fTpl" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>' +
     (ui.tplMsg ? '<p class="msgline bad">' + esc(ui.tplMsg) + '</p>' : '') + '</div>';
 }
+// 出力タブの、様式ごとの「書き込む件数」と注意点
+const TPL_INFO_ROWS = {
+  base: [['xray', '単純X線', 'xray'], ['gi', '消化管', 'gi'], ['us', '超音波', 'us'], ['ct', 'CT', 'ct'], ['mri', 'MRI', 'mri'], ['rn', '核医学', 'rn'], ['ivr', 'IVR', 'ivr'], ['rt', '放射線治療', 'rt']],
+  diag: [['xray', '単純X線', 'xray'], ['gi', '消化管', 'gi'], ['us', '超音波', 'us'], ['ct', 'CT', 'ct'], ['mri', 'MRI', 'mri'], ['rn', '核医学', 'rn'], ['ivr', 'IVR', 'ivr']],
+  rt: [['head', '部位別: 脳・頭頸部', 'rt_head'], ['chest', '部位別: 胸部', 'rt_chest'], ['abd', '部位別: 腹部・骨盤部', 'rt_abd'], ['msk', '部位別: 四肢・皮膚・その他', 'rt_msk'],
+    ['brachy', '技術: 密封小線源', 't_brachy'], ['imrt', '技術: 強度変調', 't_imrt'], ['srt', '技術: 定位放射線照射', 't_srt'], ['special', '技術: 特殊治療', 't_special']]
+};
 function renderTplInfo(){
   const el = $('tplInfo');
   if (!el) return;
-  const rep = buildTemplateData(getEntries(), state.settings).report;
-  const base = TRACK_BY.base;
-  const goal = id => { const it = base.items.find(i => i.id === id); return it ? goalOf(base, it, state.settings) : null; };
-  const rows = [['xray', '単純X線'], ['gi', '消化管'], ['us', '超音波'], ['ct', 'CT'], ['mri', 'MRI'], ['rn', '核医学'], ['ivr', 'IVR'], ['rt', '放射線治療']]
-    .map(r => '<tr><td>' + r[1] + '</td><td class="r">' + fmtN(rep.counts[r[0]] || 0) + '</td><td class="r dim">' + (goal(r[0]) != null ? '目標 ' + fmtN(goal(r[0])) : '') + '</td></tr>');
-  rows.push('<tr><td>疾患群の枠（A.疾患）</td><td class="r">' + fmtN(rep.slots) + '</td><td class="r dim">目標 ' + fmtN(goal('dz') || 90) + ' / 100枠</td></tr>');
-  const w = reportWarnings(rep);
-  el.innerHTML = '<table class="itable"><thead><tr><th>シート</th><th class="r">書き込む件数</th><th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>' +
-    (w.length ? '<ul class="warnlist">' + w.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<p class="msgline">未入力の注意点はありません。</p>');
+  el.innerHTML = TPL_KINDS.map(k => {
+    const data = buildKindData(k.id, entriesFor(k.track), state.settings), rep = data.report, tr = TRACK_BY[k.track];
+    const goal = id => { const it = tr.items.find(i => i.id === id); return it ? goalOf(tr, it, state.settings) : null; };
+    const rows = TPL_INFO_ROWS[k.id].map(r => '<tr><td>' + r[1] + '</td><td class="r">' + fmtN(rep.counts[r[0]] || 0) + '</td><td class="r dim">' + (goal(r[2]) != null ? '目標 ' + fmtN(goal(r[2])) : '') + '</td></tr>');
+    if (k.id === 'base') rows.push('<tr><td>疾患群の枠（A.疾患）</td><td class="r">' + fmtN(rep.slots) + '</td><td class="r dim">目標 ' + fmtN(goal('dz') || 90) + ' / 100枠</td></tr>');
+    const w = reportWarnings(rep), has = tplSource(k.id) != null;
+    return '<section class="tplkind" data-kind="' + k.id + '"><h4>' + esc(k.name) + '<span class="dim">　' + esc(k.file) + '</span></h4>' +
+      '<table class="itable"><thead><tr><th>シート</th><th class="r">書き込む件数</th><th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>' +
+      (w.length ? '<ul class="warnlist">' + w.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<p class="msgline">未入力の注意点はありません。</p>') +
+      '<div class="row2"><button class="btn primary" data-act="tpl" data-k="' + k.id + '">' + esc(k.name.replace('（基本領域）', '')) + 'の様式に書き込んで出力</button>' +
+      (has ? '' : '<span class="dim">先に、上で様式ファイルを選んでください</span>') + '</div></section>';
+  }).join('');
 }
 
 function renderProgress(){
@@ -325,7 +349,7 @@ function renderLog(){
   const ro = readOnly();
   const all = sortEntries(getEntries());
   const fc = $('logCat').value, q = $('logQ').value.trim().toLowerCase();
-  const list = all.filter(e => (!fc || e.c === fc) && (!q || [e.z, e.p, e.q, e.r, e.h, e.tx, e.m, e.s, e.f1, e.f2].join(' ').toLowerCase().indexOf(q) >= 0));
+  const list = all.filter(e => (!fc || e.c === fc) && (!q || [e.z, e.p, e.q, e.r, e.h, e.tx, e.m, e.s, e.f1, e.f2, e.u, e.ae].join(' ').toLowerCase().indexOf(q) >= 0));
   const shown = list.slice(0, ui.logLimit);
   const total = list.reduce((s, e) => s + e.n, 0);
   $('logInfo').textContent = list.length ? '該当 ' + fmtN(list.length) + ' 件（症例数の合計 ' + fmtN(total) + '）' : '';
@@ -336,7 +360,8 @@ function renderLog(){
   }
   $('logList').innerHTML = shown.map(e => {
     const g = CAT_BY[e.c].g;
-    const subs = [slotDemog(e), e.p, e.q, e.z, e.r ? '依頼: ' + e.r : '', e.h, e.tx, e.s, e.m].filter(Boolean).map(esc).join(' ・ ');
+    const rtd = g === 'rt' ? [e.mt, e.pu, e.ds != null ? e.ds + ' Gy' : '', e.fx != null ? e.fx + '回' : '', e.td != null ? '計' + e.td + ' Gy' : '', e.u].filter(Boolean).join(' ') : '';
+    const subs = [slotDemog(e), e.p, e.q, e.z, e.r ? '依頼: ' + e.r : '', e.h, e.tx, rtd, e.s, e.m].filter(Boolean).map(esc).join(' ・ ');
     const del = ui.pendingDelete === e.id;
     const bad = g === 'img' && e.n === 1 && (e.a == null || !e.x);
     return '<div class="logrow"><div class="d">' + esc(e.d) + '</div>' +
@@ -515,15 +540,15 @@ function renderSettings(){
       '<div class="fld" style="align-content:end"><button class="btn" type="submit">パスコードを変更</button></div></form>' +
       '<p class="msgline" id="pwMsg"></p></section>';
   }
-  h += '<section class="card set"><h3>基本情報</h3><p class="srcp">研修手帳の様式に書き込むときに使います。施設コードは9桁の数字です。</p>' +
+  h += '<section class="card set"><h3>基本情報</h3><p class="srcp">研修手帳の様式に書き込むときに使います。施設コードは9桁の数字です（放射線科専門医の様式で使います）。施設番号は、診断専門医・治療専門医の専攻医研修手帳の「施設番号」欄に入れる番号です（例: 総-12。空欄なら施設名が入ります）。</p>' +
     '<div class="imp-sel">' +
     '<label class="fld"><span>入学年度</span><select data-act="cohort"><option value="0">未設定</option>' +
     cohortOptions().concat(st.cohort && cohortOptions().indexOf(st.cohort) < 0 ? [st.cohort] : []).sort((a, b) => b - a).map(y => '<option value="' + y + '"' + (st.cohort === y ? ' selected' : '') + '>' + y + '年度</option>').join('') + '</select></label>' +
     '<label class="fld"><span>自分の氏名（第一読影者・術者・立案者の既定）</span><input type="text" data-act="me" maxlength="20" value="' + esc(st.me) + '"></label>' +
     '<label class="fld"><span>指導医の氏名（確定者・指導医確認の既定）</span><input type="text" data-act="sv" maxlength="20" value="' + esc(st.sv) + '"></label></div>' +
     '<h4 class="subh">研修施設（先頭の施設が既定になります）</h4>' +
-    (st.facs.length ? '<ul class="faclist">' + st.facs.map((f, i) => '<li><span class="fn">' + esc(f.n) + '</span><span class="fc num2">' + (f.c ? esc(f.c) : '<em class="bad">コード未設定</em>') + '</span><button type="button" class="x" data-act="facdel" data-i="' + i + '" aria-label="この施設を削除">×</button></li>').join('') + '</ul>' : '<p class="srcp">まだ施設が登録されていません。</p>') +
-    '<form id="facForm" class="evform"><input id="facName" type="text" maxlength="40" placeholder="施設名（例: ○○大学病院）" aria-label="施設名"><input id="facCode" type="text" inputmode="numeric" maxlength="9" placeholder="施設コード9桁" aria-label="施設コード"><button class="btn small" type="submit">追加</button></form>' +
+    (st.facs.length ? '<ul class="faclist">' + st.facs.map((f, i) => '<li><span class="fn">' + esc(f.n) + '</span><span class="fc num2">' + (f.c ? esc(f.c) : '<em class="bad">コード未設定</em>') + (f.k ? ' ・ 番号 ' + esc(f.k) : '') + '</span><button type="button" class="x" data-act="facdel" data-i="' + i + '" aria-label="この施設を削除">×</button></li>').join('') + '</ul>' : '<p class="srcp">まだ施設が登録されていません。</p>') +
+    '<form id="facForm" class="evform"><input id="facName" type="text" maxlength="40" placeholder="施設名（例: ○○大学病院）" aria-label="施設名"><input id="facCode" type="text" inputmode="numeric" maxlength="9" placeholder="施設コード9桁" aria-label="施設コード"><input id="facNo" type="text" maxlength="12" placeholder="施設番号（診断・治療用）" aria-label="施設番号"><button class="btn small" type="submit">追加</button></form>' +
     '<p class="msgline bad" id="facMsg"></p></section>';
   h += TRACKS.map(t => {
     const r = st.range[t.id] || {};

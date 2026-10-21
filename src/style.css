@@ -316,6 +316,12 @@ em.bad{font-style:normal;font-size:12.5px}
 .tplcard p{font-size:13px;color:var(--fg-2)}
 .tplcard .btn{justify-self:start}
 .tplcard .itable{max-width:460px}
+.tplrow{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.tplrow .kn{font-size:11.5px;color:var(--fg-2);border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+.tplkind{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
+.tplkind h4{font-size:14px;font-weight:600}
+.tplkind h4 .dim{font-weight:400;font-size:12px}
+.tplkind .row2{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .warnlist{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--warn);display:grid;gap:2px}
 .imp-mode{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13.5px}
 .imp-mode label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}

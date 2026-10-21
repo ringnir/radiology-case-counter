@@ -29,6 +29,27 @@ const CAT_BY = {}; CATS.forEach(c => { CAT_BY[c.k] = c; });
 const GROUP_BY = {}; GROUPS.forEach(g => { GROUP_BY[g.id] = g; });
 const TECH_BY = {}; TECHS.forEach(t => { TECH_BY[t.k] = t; });
 const RT4 = ['rt_head','rt_chest','rt_abd','rt_msk'];
+// 放射線治療の「治療種別・技術」: t は治療技術（集計用）、mt は研修手帳の「治療種別」欄に書く名前
+const RT_KINDS = [
+  {id:'', label:'指定なし', t:'', mt:''},
+  {id:'3dcrt', label:'3DCRT', t:'', mt:'3DCRT'},
+  {id:'imrt', label:'強度変調放射線治療（IMRT）', t:'imrt', mt:'IMRT'},
+  {id:'srt_h', label:'頭部定位放射線照射', t:'srt', mt:'頭部定位放射線照射'},
+  {id:'srt_b', label:'体幹部定位放射線照射', t:'srt', mt:'体幹部定位放射線照射'},
+  {id:'particle', label:'粒子線治療', t:'special', mt:'粒子線治療'},
+  {id:'brachy', label:'密封小線源治療', t:'brachy', mt:'密封小線源治療'},
+  {id:'special', label:'特殊治療（全身照射・術中照射など。内容は「治療法」に）', t:'special', mt:''},
+  {id:'srt', label:'定位放射線照射（頭部・体幹を分けない）', t:'srt', mt:''},
+  {id:'hp', label:'高精度（強度変調・定位の区別なし）', t:'hp', mt:''}
+];
+const RT_MT = RT_KINDS.filter(k => k.mt).map(k => k.mt);
+const RT_PURPOSES = ['根治', '準根治', '姑息・緩和', '他'];
+// 記録 → 選択肢のid（完全一致 → 技術だけ一致 → 種別だけ一致の順）
+function rtKindId(e){
+  const t = (e && e.t) || '', mt = (e && e.mt) || '';
+  const hit = RT_KINDS.find(k => k.id && k.t === t && k.mt === mt) || RT_KINDS.find(k => k.id && t && k.t === t) || RT_KINDS.find(k => k.id && mt && k.mt === mt);
+  return hit ? hit.id : '';
+}
 
 const TRACKS = [
   {
@@ -129,30 +150,48 @@ function monthKey(d){ return 'm-' + d.slice(0, 7); }
 function clampN(n){ n = Math.round(Number(n)); if (!isFinite(n) || n < 1) return 1; return Math.min(n, 999); }
 function isId(id){ return typeof id === 'string' && /^[A-Za-z0-9_-]{4,40}$/.test(id); }
 
-const TXT_MAX = {z:80, m:120, s:60, p:30, q:20, r:80, f1:20, f2:20, h:60, tx:60};
+const TXT_MAX = {z:80, m:120, s:60, p:30, q:20, r:80, f1:20, f2:20, h:60, tx:60, u:20, ae:40, nu:12};
 function intIn(v, lo, hi){
   if (v === '' || v == null) return null;
   const n = Math.round(Number(v));
   return isFinite(n) && n >= lo && n <= hi ? n : null;
 }
+function numIn(v, lo, hi, dec){
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  if (!isFinite(n) || n < lo || n > hi) return null;
+  const k = Math.pow(10, dec || 0);
+  return Math.round(n * k) / k;
+}
+function isMonth(s){ return typeof s === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s) && Number(s.slice(0, 4)) >= 2000 && Number(s.slice(0, 4)) <= 2100; }
 function cleanTxt(v, max){ return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max); }
 // 1件の記録: d 日付 / c 区分 / n 件数 / a 年齢 / x 性別(M,F) / p 部位 / q 種別 / r 依頼内容 / z 診断名・疾患名 / k 疾患群の枠(1-100)
 //          f1 第一読影者・術者・立案者 / f2 確定者・指導医 / h 手技(IVR) / tx 治療法(放射線治療) / ro 術・助 / o 診断のみ / t 治療技術 / s 施設 / m メモ
+//          放射線治療のみ: mt 治療種別 / pu 目的 / p 照射部位 / u 依頼科 / ds 1回線量(Gy) / fx 照射回数 / td 全照射量(Gy) / d2 終了年月 / ae 有害事象 / nu 核種（小線源）
 function sanitizeEntry(raw){
   if (!raw || typeof raw !== 'object') return null;
   if (!isDate(raw.d) || typeof raw.c !== 'string' || !CAT_BY[raw.c]) return null;
   const g = CAT_BY[raw.c].g;
   const e = {d: raw.d, c: raw.c, n: clampN(raw.n)};
-  if (raw.t && TECH_BY[raw.t] && g === 'rt') e.t = raw.t;
+  if (g === 'rt') {
+    if (raw.t && TECH_BY[raw.t]) e.t = raw.t;
+    if (raw.mt && RT_MT.indexOf(raw.mt) >= 0) e.mt = raw.mt;
+    if (RT_PURPOSES.indexOf(raw.pu) >= 0) e.pu = raw.pu;
+    const ds = numIn(raw.ds, 0.01, 100, 2); if (ds != null) e.ds = ds;
+    const fx = intIn(raw.fx, 1, 99); if (fx != null) e.fx = fx;
+    const td = numIn(raw.td, 0.1, 200, 2); if (td != null) e.td = td;
+    if (isMonth(raw.d2)) e.d2 = raw.d2;
+  }
   const a = intIn(raw.a, 0, 120); if (a != null) e.a = a;
   if (raw.x === 'M' || raw.x === 'F') e.x = raw.x;
   const keys = ['z', 'm', 's', 'f1', 'f2'];
   if (g === 'img') keys.push('p', 'q', 'r');
   if (g === 'ivr') keys.push('h');
-  if (g === 'rt') keys.push('tx');
+  if (g === 'rt') keys.push('tx', 'p', 'u', 'ae', 'nu');
   keys.forEach(k => { if (raw[k]) { const v = cleanTxt(raw[k], TXT_MAX[k]); if (v) e[k] = v; } });
   if (g === 'img' && e.n === 1) { const k = intIn(raw.k, 1, 100); if (k != null) e.k = k; }
-  if (g === 'ivr') { if (raw.ro === '術' || raw.ro === '助') e.ro = raw.ro; if (raw.o) e.o = 1; }
+  if (g === 'ivr' || (g === 'rt' && e.t === 'brachy')) { if (raw.ro === '術' || raw.ro === '助') e.ro = raw.ro; }
+  if (g === 'ivr' && raw.o) e.o = 1;
   return e;
 }
 function cleanMonths(rawMonths){
@@ -229,7 +268,10 @@ function sanitizeSettings(s){
       if (!f || typeof f.n !== 'string') return;
       const n = cleanTxt(f.n, 40); if (!n || o.facs.some(x => x.n === n)) return;
       const c = String(f.c == null ? '' : f.c).normalize('NFKC').replace(/\s/g, '');
-      o.facs.push({n: n, c: /^\d{9}$/.test(c) ? c : ''});
+      const k = cleanTxt(String(f.k == null ? '' : f.k).normalize('NFKC'), 12);
+      const fo = {n: n, c: /^\d{9}$/.test(c) ? c : ''};
+      if (k) fo.k = k;
+      o.facs.push(fo);
     });
   }
   if (typeof s.me === 'string') o.me = cleanTxt(s.me, 20);
@@ -287,10 +329,12 @@ function csvCell(v){
 function entryRow(e, raw){
   const T = raw ? (v => v == null ? '' : v) : safeText;
   return [e.d, CAT_BY[e.c].label, e.n, e.a != null ? e.a : '', e.x || '', T(e.p), T(e.q), T(e.r), T(e.z), e.k || '',
-    e.t ? TECH_BY[e.t].label : '', T(e.h || e.tx), e.ro || '', e.o ? '○' : '', T(e.s), T(e.f1), T(e.f2), T(e.m)];
+    e.t ? TECH_BY[e.t].label : '', T(e.h || e.tx), e.ro || '', e.o ? '○' : '', T(e.s), T(e.f1), T(e.f2), T(e.m),
+    T(e.u), e.mt || '', e.pu || '', e.ds != null ? e.ds : '', e.fx != null ? e.fx : '', e.td != null ? e.td : '', e.d2 || '', T(e.ae), T(e.nu)];
 }
 const ENTRY_HEAD = ['検査日・経験日', '区分', '件数', '年齢', '性別', '部位', '種別', '依頼内容', '診断名・疾患名', '疾患群の枠',
-  '治療技術', '手技・治療法', '術/助', '診断のみ', '施設', '第一読影者・術者・立案者', '確定者・指導医', 'メモ'];
+  '治療技術', '手技・治療法', '術/助', '診断のみ', '施設', '第一読影者・術者・立案者', '確定者・指導医', 'メモ',
+  '依頼科', '治療種別', '目的', '1回線量(Gy)', '照射回数', '全照射量(Gy)', '終了年月', '有害事象', '核種'];
 function toCSV(entries){
   const rows = [ENTRY_HEAD].concat(entries.map(entryRow));
   return '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';

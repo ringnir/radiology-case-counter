@@ -85,21 +85,38 @@
             </div>
           </div>
           <div id="detRt" hidden>
-            <label class="fld"><span>治療法</span><input id="fTx" type="text" maxlength="60" placeholder="例: 外部照射、根治"></label>
-            <label class="fld" id="techWrap"><span>治療技術</span>
-              <select id="fTech">
-                <option value="">指定なし</option>
-                <option value="imrt">強度変調放射線治療</option>
-                <option value="srt">定位放射線照射</option>
-                <option value="hp">高精度（強度変調・定位の区別なし）</option>
-                <option value="brachy">密封小線源治療</option>
-                <option value="special">特殊治療</option>
-              </select>
+            <label class="fld" id="techWrap"><span>治療種別・治療技術</span><select id="fTech"></select></label>
+            <label class="fld"><span>治療法（自由記載）</span><input id="fTx" type="text" maxlength="60" placeholder="例: 外部照射、根治"></label>
+            <label class="fld" id="roleRtWrap" hidden><span>術者／第一助手（密封小線源）</span>
+              <select id="fRoleRt"><option value="">—</option><option value="術">術</option><option value="助">助</option></select>
             </label>
+            <details class="moredet" id="rtDet">
+              <summary>治療の詳細（研修手帳の様式に書き込む項目）</summary>
+              <div class="two">
+                <label class="fld"><span>依頼科</span><input id="fU" type="text" maxlength="20" placeholder="例: 泌尿器科"></label>
+                <label class="fld"><span>照射部位</span><input id="fRtSite" type="text" maxlength="30" placeholder="例: 骨盤部"></label>
+              </div>
+              <div class="two">
+                <label class="fld"><span>目的</span>
+                  <select id="fPu"><option value="">—</option><option>根治</option><option>準根治</option><option>姑息・緩和</option><option>他</option></select>
+                </label>
+                <label class="fld" id="nuWrap" hidden><span>核種（小線源）</span><input id="fNu" type="text" maxlength="12" placeholder="例: 192-Ir"></label>
+              </div>
+              <div class="two">
+                <label class="fld"><span>1回線量（Gy）</span><input id="fDs" type="number" inputmode="decimal" min="0.01" max="100" step="0.01" placeholder="例: 2"></label>
+                <label class="fld"><span>照射回数</span><input id="fFx" type="number" inputmode="numeric" min="1" max="99" placeholder="例: 30"></label>
+              </div>
+              <div class="two">
+                <label class="fld"><span>全照射量（Gy）</span><input id="fTd" type="number" inputmode="decimal" min="0.1" max="200" step="0.01"></label>
+                <label class="fld"><span>終了年月</span><input id="fD2" type="month"></label>
+              </div>
+              <label class="fld"><span>有害事象</span><input id="fAe" type="text" maxlength="40" placeholder="例: 軽度の排尿障害"></label>
+              <p class="hint">開始年月は「経験日」が使われます。全照射量を空にすると、1回線量×照射回数が入ります。</p>
+            </details>
           </div>
           <label class="fld"><span id="lblDz">診断名（任意）</span><input id="fDz" type="text" maxlength="80" placeholder="例: 肝細胞癌、肺炎"></label>
           <label class="fld" id="slotWrap"><span>疾患群の枠（任意・研修手帳A.疾患）</span><select id="fSlot"></select></label>
-          <details class="moredet">
+          <details class="moredet" id="moreDet">
             <summary>施設・読影者・メモ</summary>
             <label class="fld"><span>施設</span><input id="fSite" type="text" list="siteList" maxlength="60"></label>
             <datalist id="siteList"></datalist><datalist id="partList"></datalist><datalist id="kindList"></datalist>
@@ -142,10 +159,9 @@
           <p class="loginfo" id="exInfo"></p>
           <div class="card tplcard">
             <h3>研修手帳の様式（Excel）</h3>
-            <p>日本医学放射線学会の様式（形成評価 Ⅳ.経験）に、登録した症例をそのまま書き込んだExcelを出力します。施設名・施設コード・検査日・年齢・性別・疾患名・症例番号などが所定の列に入り、書式や入力規則は元の様式のままです。患者IDは含まれません。</p>
+            <p>学会が配布している研修手帳の様式に、登録した症例をそのまま書き込んだExcelを出力します。<b>放射線科専門医（基本領域）の経験症例記録</b>、<b>診断専門医</b>と<b>治療専門医</b>の専攻医研修手帳に対応しています（ファイルの中身から種類を自動で判別します）。書式や入力規則は元の様式のままです。患者IDは含まれません。</p>
             <div id="tplFile"></div>
             <div id="tplInfo"></div>
-            <button class="btn primary" data-act="tpl">様式に書き込んで出力</button>
           </div>
           <div class="acts">
             <div class="card">
