@@ -6,7 +6,8 @@
   "license": "MIT",
   "scripts": {
     "build": "python3 tools/build.py",
-    "test": "npm run build && node tests/logic.test.js && node tests/server.test.js && node tests/e2e.js"
+    "test": "npm run build && node tests/no-template.test.js && node tests/logic.test.js && node tests/server.test.js && node tests/e2e.js",
+    "shots": "npm run build && node tests/shots.js"
   },
   "devDependencies": {
     "jszip": "3.10.1",

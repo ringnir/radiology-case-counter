@@ -6,7 +6,6 @@
 出力:
   index.html                  GitHub Pages / 手元で開く用（様式ファイルは含まない・利用者が読み込む）
   apps-script/Index.html      Apps Script 用（同じ内容）
-  dist/Index.embedded.html    src/template-b64.js がある場合のみ。様式ファイルを内蔵した私用版（公開しない）
   dist/page-script.js         構文チェック用（node --check）
 """
 import os, re, sys
@@ -40,20 +39,8 @@ def build(b64):
             '<script>\n' + JSZIP + '\n</script>\n<script>\n' + ps + '</script>\n</body>\n</html>\n')
     return html, ps
 
-def embedded_b64():
-    if not os.path.exists(os.path.join(ROOT, 'src', 'template-b64.js')):
-        return ''
-    m = re.search(r'const TPL_B64 = "([^"]*)"', rd('src', 'template-b64.js'))
-    return m.group(1) if m else ''
-
 html, ps = build('')
 wr(html, 'index.html')
 wr(html, 'apps-script', 'Index.html')
 wr(ps, 'dist', 'page-script.js')
-print('index.html', len(html.encode('utf8')), 'bytes（様式ファイルなし）')
-b64 = embedded_b64()
-if b64:
-    h2, ps2 = build(b64)
-    wr(h2, 'dist', 'Index.embedded.html')
-    wr(ps2, 'dist', 'page-script.embedded.js')
-    print('dist/Index.embedded.html', len(h2.encode('utf8')), 'bytes（様式ファイル内蔵・公開しない）')
+print('index.html', len(html.encode('utf8')), 'bytes（様式ファイルは含みません）')

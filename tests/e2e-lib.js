@@ -11,7 +11,7 @@ const env = makeEnv(code, { admin: 'adminpass1', join: 'join123' });
 env.call('setup');
 const XLSX_SRC = fs.readFileSync(require.resolve('xlsx/dist/xlsx.full.min.js'), 'utf8');
 const URL_ = 'http://app.test/';
-// APP=dist/Index.embedded.html で様式内蔵版を試験。既定は様式を含まない index.html
+// APP で試験するHTMLを変えられる。既定は index.html（様式を含まない）
 const APP = path.resolve(ROOT, process.env.APP || 'index.html');
 const INDEX_HTML = () => fs.readFileSync(APP, 'utf8');
 const EMBEDDED = /const TPL_B64 = "UEsD/.test(INDEX_HTML());

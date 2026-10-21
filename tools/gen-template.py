@@ -1,10 +1,9 @@
 # 研修手帳テンプレート（xlsx）から、アプリに埋め込む定義を生成する
 import openpyxl, base64, json, re, warnings, sys, os
 warnings.filterwarnings('ignore')
-# 使い方: python3 tools/gen-template.py <様式.xlsx> [--embed]
-#   既定: src/template.js（構造のみ）を出力。--embed を付けると src/template-b64.js（様式本体の埋め込み用）も出力
+# 使い方: python3 tools/gen-template.py <様式.xlsx>
+#   src/template.js（様式の構造だけ。様式ファイルそのものは出力しません）を作り直します
 SRC=sys.argv[1]
-EMBED='--embed' in sys.argv
 OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','src')
 wb=openpyxl.load_workbook(SRC)
 ws=wb.worksheets[0]
@@ -36,7 +35,6 @@ for r in range(6,66):
     h=wr.cell(r,8).value
     if h: rt_sites[r-5]=h
 print('rt prefilled',rt_sites)
-b64=base64.b64encode(open(SRC,'rb').read()).decode() if EMBED else ''
 sheets={'a':{'f':'sheet1.xml','name':wb.worksheets[0].title},
         'xray':{'f':'sheet2.xml','name':wb.worksheets[1].title,'cap':800},
         'gi':{'f':'sheet3.xml','name':wb.worksheets[2].title,'cap':120},
@@ -53,6 +51,3 @@ out+='const TPL_SHEETS = '+json.dumps(sheets,ensure_ascii=False)+';\n'
 out+='const TPL_RT_SITES = '+json.dumps(rt_sites,ensure_ascii=False)+';  // 放射線治療シートで部位が先に入っている番号\n'
 open(os.path.join(OUT,'template.js'),'w',encoding='utf8').write(out)
 print('written',len(out))
-if EMBED:
-    open(os.path.join(OUT,'template-b64.js'),'w',encoding='utf8').write('/* 自動生成: 様式ファイル本体（埋め込み版のみ。公開リポジトリには含めません） */\nconst TPL_B64 = "'+b64+'";\n')
-    print('embedded b64 written')

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<style>
+:root{--teal:#0b6b78;--teal2:#d6ebee;--ink:#17222b;--mut:#5a6a76;--line:#c9d3da;--bg:#f3f6f8;--warn:#d9480f;--ok:#1b7a4b;--g:#1a73e8}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;background:#fff;font-family:"Noto Sans CJK JP","Noto Sans JP","Hiragino Sans","Meiryo",sans-serif;color:var(--ink);font-size:15px;line-height:1.5}
+.fig{position:relative;width:1000px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:22px 24px 20px;margin:0 0 28px}
+.fig h3{margin:0 0 4px;font-size:19px}
+.fig .sub{margin:0 0 16px;color:var(--mut);font-size:13.5px}
+.tag{position:absolute;right:16px;top:14px;font-size:12px;color:var(--mut);border:1px dashed #9aa8b2;border-radius:999px;padding:1px 10px;background:#fff}
+.badge{position:absolute;width:26px;height:26px;border-radius:50%;background:var(--warn);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px #fff;z-index:5}
+.b{display:inline-flex;vertical-align:middle;width:22px;height:22px;border-radius:50%;background:var(--warn);color:#fff;font-weight:700;font-size:13px;align-items:center;justify-content:center;margin-right:8px;flex:none}
+.win{background:#fff;border:1px solid #b5c0c8;border-radius:10px;overflow:hidden;position:relative}
+.win .bar{height:30px;background:#e9eef1;border-bottom:1px solid #c9d3da;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:12px;color:var(--mut)}
+.win .bar i{width:10px;height:10px;border-radius:50%;background:#c3ccd2;display:inline-block}
+.btn{display:inline-block;border:1px solid #9aa8b2;border-radius:6px;padding:3px 12px;background:#fff;font-size:13px}
+.btn.p{background:var(--g);border-color:var(--g);color:#fff}
+.btn.hl,.hl{outline:3px solid var(--warn);outline-offset:2px}
+.mono{font-family:"DejaVu Sans Mono","Noto Sans Mono CJK JP",monospace}
+.legend{margin:14px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:14px}
+.legend div{display:flex;align-items:flex-start}
+.box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.arrow{font-size:28px;color:var(--teal);align-self:center;padding:0 6px}
+.row{display:flex;gap:10px;align-items:stretch}
+.note{margin-top:12px;font-size:13.5px;color:var(--mut)}
+.warn{color:var(--warn);font-weight:700}
+.field{display:flex;align-items:center;margin:6px 0;font-size:14px}
+.field label{width:200px;color:var(--mut)}
+.sel{border:1px solid #9aa8b2;border-radius:6px;padding:4px 10px;background:#fff;min-width:260px}
+.step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative}
+.step .n{font-size:12px;color:var(--teal);font-weight:700}
+.step .t{font-weight:700;margin:2px 0}
+.step .m{font-size:12.5px;color:var(--mut)}
+</style></head><body>
+
+<!-- 1. 全体のしくみ -->
+<section class="fig" id="gas-overview" style="height:330px">
+  <span class="tag">模式図</span>
+  <h3>全体のしくみ</h3><p class="sub">データは管理者のGoogleドライブに保存されます。メンバーはGoogleアカウント不要です。</p>
+  <div class="row" style="margin-top:6px">
+    <div class="box" style="width:230px"><b>メンバー</b><br><span style="font-size:13px;color:var(--mut)">スマホ・パソコンのブラウザ<br>氏名＋パスコードでログイン<br>（Googleアカウントは不要）</span></div>
+    <div class="arrow">➜</div>
+    <div class="box" style="width:290px;border-color:var(--teal);background:#f7fcfd"><b style="color:var(--teal)">Apps Script のウェブアプリ</b><br><span style="font-size:13px;color:var(--mut)">管理者のGoogleアカウントで動く<br>このリポジトリの <span class="mono">Code.gs</span> と <span class="mono">Index.html</span> を貼り付けて作る</span></div>
+    <div class="arrow">➜</div>
+    <div class="box" style="width:230px"><b>データ用スプレッドシート</b><br><span style="font-size:13px;color:var(--mut)">管理者のドライブに自動で作成<br>（<span class="mono">members</span> / <span class="mono">docs</span> / <span class="mono">config</span>）</span></div>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <div class="box" style="width:230px"><b>管理者（あなた）</b><br><span style="font-size:13px;color:var(--mut)">管理者パスコードでログイン<br>全員の進捗を一覧・出力</span></div>
+    <div style="width:20px"></div>
+    <div class="box" style="flex:1"><b>メンバーへの渡し方は2通り</b><br><span style="font-size:13px;color:var(--mut)">① デプロイで表示される <span class="mono">…/exec</span> のURLを、そのまま案内する　② Googleサイトに「埋め込み」で載せて、サイトのアドレスを案内する</span></div>
+  </div>
+</section>
+
+<!-- 2. 全体の流れ -->
+<section class="fig" id="gas-steps" style="height:395px">
+  <span class="tag">模式図</span>
+  <h3>セットアップの流れ（全部で30〜40分）</h3><p class="sub">上から順に、1つずつ進めます。途中で止めても、続きから再開できます。</p>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    <div class="step"><div class="n">手順0 ・ 5分</div><div class="t">ファイルの用意</div><div class="m">GitHubからZIPをダウンロード</div></div>
+    <div class="step"><div class="n">手順1 ・ 3分</div><div class="t">プロジェクト作成</div><div class="m">script.google.com で「新しいプロジェクト」</div></div>
+    <div class="step"><div class="n">手順2 ・ 5分</div><div class="t">Code.gs を貼り付け</div><div class="m">合言葉（2つのコード）を書く</div></div>
+    <div class="step"><div class="n">手順3 ・ 3分</div><div class="t">Index.html を追加</div><div class="m">HTMLファイルを作って貼り付け</div></div>
+    <div class="step"><div class="n">手順4 ・ 5分</div><div class="t">setup を実行</div><div class="m">権限を許可してデータ置き場を作る</div></div>
+    <div class="step"><div class="n">手順5 ・ 5分</div><div class="t">デプロイ</div><div class="m">ウェブアプリとして公開し、URLを控える</div></div>
+    <div class="step"><div class="n">手順6 ・ 5分</div><div class="t">動作確認</div><div class="m">シークレットウィンドウで登録・ログイン</div></div>
+    <div class="step" style="border-style:dashed"><div class="n">手順7 ・ 10分（任意）</div><div class="t">Googleサイトに埋め込み</div><div class="m">サイトにまとめたい場合だけ</div></div>
+  </div>
+  <p class="note" style="margin-top:16px">各手順の最後に「確認」があります。<b>画面にそのとおり表示されたら、次へ進んでください。</b>うまくいかないときは、その手順の「うまくいかないとき」を見ます。</p>
+</section>
+
+<!-- 3. エディタの配置 -->
+<section class="fig" id="gas-editor" style="height:790px">
+  <span class="tag">模式図（実際の画面とは見た目が異なります）</span>
+  <h3>Apps Script のエディタの見かた</h3><p class="sub">手順1で「新しいプロジェクト」を作ると、このような画面が開きます。番号は、下の説明と対応しています。</p>
+  <div class="win" style="height:545px">
+    <div class="bar"><i></i><i></i><i></i><span style="margin-left:10px">script.google.com</span></div>
+    <div style="display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line)">
+      <span style="font-weight:700;font-size:16px" class="hl">専門医症例カウンター ✎</span>
+      <span style="flex:1"></span>
+      <span class="btn p hl">デプロイ ▾</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--line);background:#fafcfd">
+      <span class="btn">↶</span><span class="btn">↷</span>
+      <span class="btn hl">💾 保存</span>
+      <span class="btn hl">▶ 実行</span><span class="btn">デバッグ</span>
+      <span class="sel hl" style="min-width:150px">setup ▾</span>
+    </div>
+    <div style="display:flex;height:410px">
+      <div style="width:58px;border-right:1px solid var(--line);background:#fafcfd;display:flex;flex-direction:column;gap:14px;padding:10px 0;align-items:center;font-size:11px;color:var(--mut)">
+        <div>&lt;&gt;<br>エディタ</div><div>⏱<br>トリガー</div><div>≡<br>実行数</div><div>⚙<br>設定</div>
+      </div>
+      <div style="width:200px;border-right:1px solid var(--line);padding:10px 12px;background:#fff">
+        <div style="font-size:13px;color:var(--mut);display:flex;justify-content:space-between"><span>ファイル</span><span class="btn hl" style="padding:0 8px">＋</span></div>
+        <div style="margin-top:8px;font-size:14px" class="mono"><div style="background:var(--teal2);padding:2px 6px;border-radius:4px">Code.gs</div><div style="padding:2px 6px">Index.html</div></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <div class="mono hl" style="flex:1;padding:12px 16px;font-size:13px;line-height:1.7;color:#4b5963;margin:6px;border-radius:6px;overflow:hidden">
+          <div style="color:#9aa8b2">1&nbsp;&nbsp;/**</div><div style="color:#9aa8b2">2&nbsp;&nbsp;&nbsp;* 専門医症例カウンター（複数人管理版）</div><div style="color:#9aa8b2">3&nbsp;&nbsp;&nbsp;*/</div>
+          <div>14&nbsp;const ADMIN_PASSCODE = '';</div><div>15&nbsp;const JOIN_CODE = '';</div><div style="color:#9aa8b2">16&nbsp;……（コードが続く）</div>
+        </div>
+        <div class="hl" style="height:100px;margin:0 6px 6px;border-radius:6px;background:#1f2a33;color:#d8e1e7;padding:8px 14px;font-size:12.5px" >
+          <div style="color:#9fb3c0;margin-bottom:4px">実行ログ</div>
+          <div class="mono">実行を開始しています</div><div class="mono">準備ができました。次はデプロイ（ウェブアプリ）に進んでください。…</div><div class="mono">実行が完了しました</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="badge" style="left:30px;top:152px">1</div>
+  <div class="badge" style="right:20px;top:150px">2</div>
+  <div class="badge" style="left:176px;top:210px">3</div>
+  <div class="badge" style="left:270px;top:176px">4</div>
+  <div class="badge" style="left:402px;top:210px">5</div>
+  <div class="badge" style="left:200px;top:290px">6</div>
+  <div class="badge" style="right:36px;top:232px;left:auto">7</div>
+  <div class="badge" style="right:36px;top:520px;left:auto">8</div>
+  <div class="legend" style="margin-top:14px">
+    <div><span class="b">1</span>プロジェクト名（クリックで変更できます）</div>
+    <div><span class="b">2</span>「デプロイ」…公開の設定をするボタン（手順5）</div>
+    <div><span class="b">3</span>保存（コードを直したら必ず押す。Ctrl＋S でも可）</div>
+    <div><span class="b">4</span>「実行」…選んだ関数を動かす（手順4）</div>
+    <div><span class="b">5</span>関数の選択欄…<span class="mono">setup</span> を選ぶ</div>
+    <div><span class="b">6</span>ファイル一覧と「＋」（ファイルの追加。手順3）</div>
+    <div><span class="b">7</span>コードを貼り付ける・書き換える編集欄（手順2）</div>
+    <div><span class="b">8</span>実行ログ（実行結果のメッセージが出る）</div>
+  </div>
+</section>
+
+<!-- 4. コードの書き換え -->
+<section class="fig" id="gas-code-edit" style="height:470px">
+  <span class="tag">模式図</span>
+  <h3>2つのコードを書き込む（手順2）</h3><p class="sub"><span class="mono">Code.gs</span> の先頭近くにある2行の、<b>引用符 ' ' の間だけ</b>を書き換えます。</p>
+  <div class="box mono" style="font-size:15px;line-height:2.1">
+    <div style="color:var(--mut);font-size:12.5px">変更前</div>
+    <div>const ADMIN_PASSCODE = <span style="background:#fde4d8;padding:0 2px">'</span><span style="background:#fde4d8;padding:0 2px">'</span>;&nbsp;&nbsp;<span style="color:#9aa8b2">// 管理者パスコード（8文字以上）</span></div>
+    <div>const JOIN_CODE = <span style="background:#fde4d8;padding:0 2px">'</span><span style="background:#fde4d8;padding:0 2px">'</span>;&nbsp;&nbsp;<span style="color:#9aa8b2">// 招待コード（6文字以上）</span></div>
+    <div style="color:var(--mut);font-size:12.5px;margin-top:8px">変更後（例。<span class="warn">この例は使わず、自分で決めたものを書く</span>）</div>
+    <div>const ADMIN_PASSCODE = '<span style="background:#d7f0e1;padding:0 2px;font-weight:700">kanri-2026-xyz</span>';</div>
+    <div>const JOIN_CODE = '<span style="background:#d7f0e1;padding:0 2px;font-weight:700">nyugaku2026</span>';</div>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <div class="box" style="flex:1"><b style="color:var(--ok)">○ よい例</b><div style="font-size:13.5px;color:var(--mut)">半角の英数字と <span class="mono">-</span> <span class="mono">_</span> だけ<br>引用符 <span class="mono">' '</span> は消さない<br>行末の <span class="mono">;</span> も消さない</div></div>
+    <div class="box" style="flex:1"><b class="warn">× だめな例</b><div style="font-size:13.5px;color:var(--mut)">全角文字・空白<br><span class="mono">'</span>（引用符）・<span class="mono">"</span>・<span class="mono">\</span> を中に入れる<br>2つのコードを同じ文字列にする</div></div>
+    <div class="box" style="flex:1"><b>文字数</b><div style="font-size:13.5px;color:var(--mut)">管理者パスコード：<b>8文字以上</b><br>招待コード：<b>6文字以上</b><br>足りないと「初期設定が終わっていません」と出ます</div></div>
+  </div>
+</section>
+
+<!-- 5. HTMLファイルの追加 -->
+<section class="fig" id="gas-add-html" style="height:360px">
+  <span class="tag">模式図</span>
+  <h3>Index.html を追加する（手順3）</h3><p class="sub">ファイル名は、先頭だけ大文字の <b class="mono">Index</b>（<span class="mono">.html</span> は付けません）。</p>
+  <div class="row">
+    <div class="box" style="width:290px"><div style="font-size:13px;color:var(--mut);display:flex;justify-content:space-between"><span>ファイル</span><span class="btn hl" style="padding:0 8px">＋</span></div>
+      <div class="mono" style="margin-top:8px;font-size:14px;background:var(--teal2);padding:2px 6px;border-radius:4px">Code.gs</div>
+      <div class="note" style="margin-top:10px"><span class="b" style="margin-right:6px">1</span>「＋」を押す</div></div>
+    <div class="arrow">➜</div>
+    <div class="box" style="width:230px"><div style="padding:3px 8px;border-radius:4px;color:var(--mut);font-size:14px">スクリプト</div><div class="hl" style="padding:3px 8px;border-radius:4px;font-size:14px">HTML</div>
+      <div class="note" style="margin-top:10px"><span class="b" style="margin-right:6px">2</span>「HTML」を選ぶ</div></div>
+    <div class="arrow">➜</div>
+    <div class="box" style="width:290px"><div class="mono" style="font-size:14px;background:var(--teal2);padding:2px 6px;border-radius:4px">Code.gs</div>
+      <div class="mono hl" style="margin-top:4px;padding:2px 6px;border-radius:4px;font-size:14px;border:1px solid #9aa8b2">Index</div>
+      <div class="note" style="margin-top:10px"><span class="b" style="margin-right:6px">3</span>「Index」と入力して Enter</div></div>
+  </div>
+  <div class="box" style="margin-top:14px;font-size:14px"><b>できあがり</b>：ファイル一覧に <span class="mono">Code.gs</span> と <span class="mono">Index.html</span> の2つが並びます。<br><span class="warn">×</span> <span class="mono">Index.html.html</span>　<span class="warn">×</span> <span class="mono">index</span>（小文字）　<span class="warn">×</span> <span class="mono">Index </span>（空白つき）は、動きません。</div>
+</section>
+
+<!-- 6. 承認の流れ -->
+<section class="fig" id="gas-permission" style="height:420px">
+  <span class="tag">模式図（文言は多少違うことがあります）</span>
+  <h3>setup を実行したときの、権限の許可（手順4）</h3><p class="sub">自分で作ったスクリプトなので、そのまま進んで大丈夫です。画面は4つ出ます。</p>
+  <div class="row" style="gap:8px">
+    <div class="box" style="flex:1;font-size:13px"><div class="b">1</div><b>承認が必要です</b><div style="color:var(--mut);margin:6px 0 10px">このスクリプトを実行するには、権限が必要です。</div><div class="btn p hl">権限を確認</div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13px"><div class="b">2</div><b>アカウントの選択</b><div style="color:var(--mut);margin:6px 0 10px">管理者に使う<br>Googleアカウントを選ぶ</div><div class="btn hl">○○@gmail.com</div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13px"><div class="b">3</div><b>このアプリは Google で確認されていません</b><div style="color:var(--mut);margin:6px 0 8px">自分で作ったスクリプトでは正常な表示です。</div><div><span class="hl" style="padding:0 6px;text-decoration:underline;color:var(--g)">詳細</span> を押し、さらに<br><span class="hl" style="padding:0 4px;text-decoration:underline;color:var(--g);display:inline-block;margin-top:4px">（プロジェクト名）（安全ではないページ）に移動</span></div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13px"><div class="b">4</div><b>アクセスを求めています</b><div style="color:var(--mut);margin:6px 0 10px">スプレッドシートの表示、編集、作成、削除</div><div class="btn p hl">許可</div></div>
+  </div>
+  <div class="box" style="margin-top:14px;font-size:13.5px"><b>この権限は何のため？</b>　データ用のスプレッドシートを作って、読み書きするためです。Googleの仕組み上「すべてのスプレッドシート」と表示されますが、このアプリが使うのは、<span class="mono">setup</span> が作る専用のスプレッドシート1つだけです（コードは <span class="mono">Code.gs</span> で確認できます）。<br><b>画面が出ないとき</b>：ブラウザの<b>ポップアップ</b>がブロックされています。許可してから、もう一度「実行」を押してください。</div>
+</section>
+
+<!-- 7. デプロイ -->
+<section class="fig" id="gas-deploy" style="height:545px">
+  <span class="tag">模式図（実際の画面とは見た目が異なります）</span>
+  <h3>ウェブアプリとしてデプロイする（手順5）</h3><p class="sub">エディタ右上の「デプロイ」→「新しいデプロイ」を押すと、設定の画面が開きます。</p>
+  <div class="row" style="gap:16px;align-items:flex-start">
+    <div style="width:430px" class="win">
+      <div class="bar"><span>新しいデプロイ</span></div>
+      <div style="padding:14px 16px">
+        <div class="field"><label>種類を選択（⚙）</label><span class="sel hl">ウェブアプリ</span></div>
+        <div class="field"><label>説明</label><span class="sel" style="color:#9aa8b2">（空欄でも、「初版」でもよい）</span></div>
+        <div class="field"><label>次のユーザーとして実行</label><span class="sel hl">自分（あなたのメールアドレス）</span></div>
+        <div class="field"><label>アクセスできるユーザー</label><span class="sel hl">全員</span></div>
+        <div style="text-align:right;margin-top:14px"><span class="btn">キャンセル</span> <span class="btn p">デプロイ</span></div>
+      </div>
+    </div>
+    <div style="flex:1">
+      <div class="box" style="margin-bottom:12px"><b>設定は3か所だけ</b>
+        <div style="font-size:13.5px;margin-top:6px;color:var(--mut)">① 種類は「<b>ウェブアプリ</b>」（歯車のアイコンで選ぶ）<br>② 次のユーザーとして実行は「<b>自分</b>」<br>③ アクセスできるユーザーは「<b>全員</b>」<br><span class="warn">「Google アカウントを持つ全員」ではありません。</span>メンバーがGoogleにログインしなくても使えるようにするため、「全員」にします。アプリ自体のログイン（氏名＋パスコード）があるので、中身は見られません。</div></div>
+      <div class="box"><b>デプロイが終わると</b>
+        <div style="font-size:13.5px;margin-top:6px;color:var(--mut)">「デプロイを更新しました」と出て、<b>ウェブアプリのURL</b>が表示されます。<br>「コピー」を押して、メモ帳などに<b>貼り付けて保存</b>します。</div>
+        <div class="mono" style="margin-top:8px;font-size:12.5px;background:#f3f6f8;border:1px solid var(--line);border-radius:6px;padding:6px 8px;word-break:break-all">https://script.google.com/macros/s/<span style="color:#9aa8b2">（長い英数字）</span><b style="color:var(--warn)">/exec</b></div>
+        <div style="font-size:13px;margin-top:6px"><b>末尾が <span class="mono warn">/exec</span></b> のものを使います。<span class="mono">/dev</span> で終わるURLは自分専用のテスト用なので、メンバーには渡しません。</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. 更新 -->
+<section class="fig" id="gas-update" style="height:380px">
+  <span class="tag">模式図（実際の画面とは見た目が異なります）</span>
+  <h3>新しい版にするとき：保存しただけでは反映されません</h3><p class="sub">ファイルを貼り替えて保存したら、<b>必ず「新バージョン」でデプロイし直します</b>。URLは変わりません。</p>
+  <div class="row" style="gap:8px">
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">1</div><b>デプロイ ▾ →<br>デプロイを管理</b><div style="margin-top:8px"><span class="btn p hl">デプロイ ▾</span></div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">2</div><b>今のデプロイの<br>鉛筆アイコン（編集）</b><div style="margin-top:8px;font-size:20px" class="hl">✎</div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">3</div><b>バージョンを<br>「新バージョン」にする</b><div style="margin-top:8px"><span class="sel hl" style="min-width:150px">新バージョン ▾</span></div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">4</div><b>「デプロイ」を押す</b><div style="margin-top:8px"><span class="btn p hl">デプロイ</span></div></div>
+  </div>
+  <div class="box" style="margin-top:14px;font-size:13.5px"><b class="warn">Code.gs を貼り替えたとき</b>：先頭の2つのコードが空に戻ります。<b>もとと同じコードを書き直して</b>から保存し、<span class="mono">setup</span> をもう一度実行してください（データは消えません）。</div>
+</section>
+
+<!-- 9. Googleサイトに埋め込む -->
+<section class="fig" id="gas-sites" style="height:380px">
+  <span class="tag">模式図（実際の画面とは見た目が異なります）</span>
+  <h3>Googleサイトに埋め込む（手順7・任意）</h3><p class="sub">sites.google.com で新しいサイトを作り、右側のパネルから埋め込みます。</p>
+  <div class="row" style="gap:8px">
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">1</div><b>右のパネルで<br>「挿入」タブ</b><div style="margin-top:8px"><span class="btn hl">挿入</span> <span class="btn">ページ</span> <span class="btn">テーマ</span></div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">2</div><b>「埋め込む」を押す</b><div style="margin-top:8px"><span class="btn hl">&lt;&gt; 埋め込む</span></div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">3</div><b>「URL」タブに<br>手順5のURLを貼る</b><div style="margin-top:8px"><span class="btn hl">URL</span> <span class="btn">埋め込みコード</span></div><div class="mono" style="font-size:11.5px;margin-top:6px;color:var(--mut)">…/exec</div></div>
+    <div class="arrow" style="font-size:22px">➜</div>
+    <div class="box" style="flex:1;font-size:13.5px"><div class="b">4</div><b>枠を大きく広げて、<br>「公開」</b><div style="margin-top:8px"><span class="btn p">公開</span></div></div>
+  </div>
+  <div class="box" style="margin-top:14px;font-size:13.5px"><b>うまく動かないとき</b>：画面の一番下の<b>「別のタブで開く」</b>のリンクから開き直すと、ダウンロードやログイン保持が改善することがあります。スマートフォンで使う人が多いときは、埋め込みよりも<b>URLを直接開く</b>ほうが使いやすいです。</div>
+</section>
+
+</body></html>
