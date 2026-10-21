@@ -1,0 +1,16 @@
+{
+  "name": "radiology-case-counter",
+  "version": "1.0.0",
+  "description": "放射線科専門医・診断専門医・治療専門医の申請に必要な症例数を数える（学会配布の研修手帳の様式に書き込んで出力）",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "python3 tools/build.py",
+    "test": "npm run build && node tests/logic.test.js && node tests/server.test.js && node tests/e2e.js"
+  },
+  "devDependencies": {
+    "jszip": "3.10.1",
+    "playwright-core": "1.64.1",
+    "xlsx": "0.18.5"
+  }
+}

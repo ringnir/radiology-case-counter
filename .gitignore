@@ -1,0 +1,10 @@
+node_modules/
+# 学会配布の様式ファイルは公開しない（各自が読み込む）
+*.xlsx
+src/template-b64.js
+dist/
+# テストの出力
+tests/out/
+tests/fixtures/*
+!tests/fixtures/.gitkeep
+.DS_Store

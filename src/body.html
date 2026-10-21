@@ -1,0 +1,195 @@
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>専門医症例カウンター</h1>
+      <p>放射線科専門医・診断専門医・治療専門医の申請に必要な症例数を記録します</p>
+    </div>
+    <div class="hdr-r">
+      <div class="who" id="who" hidden></div>
+      <div class="status" id="status" data-s="init" role="status"><i></i><span>読み込み中…</span></div>
+    </div>
+  </header>
+
+  <form id="upgForm" class="card upg" hidden>
+    <label class="fld"><span>管理者パスコード</span><input id="upgPass" type="password" autocomplete="off" maxlength="64"></label>
+    <button class="btn primary" type="submit">管理者として入る</button>
+    <button class="btn" type="button" data-act="upgCancel">キャンセル</button>
+    <p class="msgline bad" id="upgErr" style="flex-basis:100%"></p>
+  </form>
+
+  <section id="auth" class="authwrap" hidden>
+    <div class="card auth">
+      <h2>ログイン</h2>
+      <div class="views" role="tablist" aria-label="ログインの種類" id="authTabs">
+        <button type="button" role="tab" data-atab="login">ログイン</button>
+        <button type="button" role="tab" data-atab="register">新規登録</button>
+        <button type="button" role="tab" data-atab="admin">管理者</button>
+      </div>
+      <div id="authNote"></div>
+      <form id="authForm" autocomplete="on">
+        <label class="fld" id="aName"><span>氏名（管理者に表示される名前）</span><input id="inName" type="text" maxlength="24" autocomplete="username"></label>
+        <label class="fld"><span id="passLabel">パスコード</span><input id="inPass" type="password" maxlength="64" autocomplete="current-password"></label>
+        <label class="fld" id="aPass2"><span>パスコード（確認）</span><input id="inPass2" type="password" maxlength="64" autocomplete="new-password"></label>
+        <label class="fld" id="aJoin"><span>招待コード</span><input id="inJoin" type="text" maxlength="64" autocomplete="off"></label>
+        <p class="hint" id="authHint"></p>
+        <p class="autherr" id="authErr" role="alert"></p>
+        <div class="f-actions"><button class="btn primary" id="authGo" type="submit">ログイン</button></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="appmain" hidden>
+    <div class="drill" id="drill" hidden></div>
+    <div id="drillTpl" class="drilltpl"></div>
+    <div class="layout" id="layout">
+      <aside class="card entry" id="entry">
+        <form id="entryForm" autocomplete="off">
+          <h2 id="entryTitle">症例を登録</h2>
+          <div class="editbar" id="editBar" hidden><span>登録済みの症例を編集中です</span><button type="button" class="btn small" id="cancelEdit">キャンセル</button></div>
+          <div class="two">
+            <label class="fld"><span id="lblDate">検査日</span><input type="date" id="fDate"></label>
+            <div class="fld"><span>件数</span>
+              <div class="stepper">
+                <button type="button" id="nDec" aria-label="件数を減らす">−</button>
+                <input id="fN" type="number" inputmode="numeric" min="1" max="999" value="1" aria-label="件数">
+                <button type="button" id="nInc" aria-label="件数を増やす">＋</button>
+              </div>
+            </div>
+          </div>
+          <p class="hint" id="nHint" hidden>2件以上にすると、年齢・性別・疾患群の枠は付かず、日付と区分だけの記録になります。通常は1件にしてください。</p>
+          <fieldset>
+            <legend>区分</legend>
+            <div id="catChips" role="radiogroup" aria-label="区分"></div>
+          </fieldset>
+          <p class="hint" id="catHint"></p>
+          <div class="two">
+            <label class="fld"><span>年齢</span><input id="fAge" type="number" inputmode="numeric" min="0" max="120" placeholder="歳"></label>
+            <label class="fld"><span>性別</span>
+              <select id="fSex"><option value="">—</option><option value="M">男 (M)</option><option value="F">女 (F)</option></select>
+            </label>
+          </div>
+          <div id="detImg">
+            <div class="two">
+              <label class="fld"><span>部位</span><input id="fPart" type="text" list="partList" maxlength="30" placeholder="例: 胸腹部"></label>
+              <label class="fld"><span>種別</span><input id="fKind" type="text" list="kindList" maxlength="20" placeholder="単純 / 造影"></label>
+            </div>
+            <label class="fld"><span>依頼内容（任意）</span><input id="fReq" type="text" maxlength="80"></label>
+          </div>
+          <div id="detIvr" hidden>
+            <label class="fld"><span>手技・治療法</span><input id="fProc" type="text" maxlength="60" placeholder="例: TACE、ドレナージ"></label>
+            <div class="two">
+              <label class="fld"><span>術者／助手</span>
+                <select id="fRole"><option value="">—</option><option value="術">術</option><option value="助">助</option></select>
+              </label>
+              <label class="fld chk"><span>診断のみ</span><label class="chkline"><input id="fDxOnly" type="checkbox"> ○印をつける</label></label>
+            </div>
+          </div>
+          <div id="detRt" hidden>
+            <label class="fld"><span>治療法</span><input id="fTx" type="text" maxlength="60" placeholder="例: 外部照射、根治"></label>
+            <label class="fld" id="techWrap"><span>治療技術</span>
+              <select id="fTech">
+                <option value="">指定なし</option>
+                <option value="hp">高精度放射線治療</option>
+                <option value="brachy">密封小線源治療</option>
+                <option value="special">特殊治療</option>
+              </select>
+            </label>
+          </div>
+          <label class="fld"><span id="lblDz">診断名（任意）</span><input id="fDz" type="text" maxlength="80" placeholder="例: 肝細胞癌、肺炎"></label>
+          <label class="fld" id="slotWrap"><span>疾患群の枠（任意・研修手帳A.疾患）</span><select id="fSlot"></select></label>
+          <details class="moredet">
+            <summary>施設・読影者・メモ</summary>
+            <label class="fld"><span>施設</span><input id="fSite" type="text" list="siteList" maxlength="60"></label>
+            <datalist id="siteList"></datalist><datalist id="partList"></datalist><datalist id="kindList"></datalist>
+            <label class="fld"><span id="lblF1">第一読影者</span><input id="fF1" type="text" maxlength="20"></label>
+            <label class="fld"><span id="lblF2">確定者（指導医）</span><input id="fF2" type="text" maxlength="20"></label>
+            <label class="fld"><span>メモ（任意）</span><input id="fMemo" type="text" maxlength="120"></label>
+          </details>
+          <p class="note-priv">患者氏名・患者ID・生年月日などの個人情報は入力しないでください（依頼内容・診断名にも書かないでください）。</p>
+          <div class="f-actions"><button class="btn primary" id="btnSave" type="submit" disabled>登録</button></div>
+        </form>
+      </aside>
+
+      <main class="main">
+        <nav class="views" id="nav" role="tablist" aria-label="表示"></nav>
+
+        <section id="v-progress"></section>
+
+        <section id="v-dz" hidden>
+          <div id="dzSummary"></div>
+          <div class="dzbar" id="dzBar">
+            <input id="dzQ" type="search" placeholder="疾患群・領域・診断名で絞り込み" aria-label="疾患群で絞り込み">
+            <label><input id="dzOnly" type="checkbox"> 未割り当ての群のみ</label>
+          </div>
+          <div id="dzGroups"></div>
+        </section>
+
+        <section id="v-log" hidden>
+          <div class="filters">
+            <select id="logCat" aria-label="区分で絞り込み"></select>
+            <input id="logQ" type="search" placeholder="疾患・施設・メモで検索" aria-label="検索">
+          </div>
+          <p class="loginfo" id="logInfo"></p>
+          <div class="loglist" id="logList"></div>
+          <div class="more" id="logMore" hidden><button class="btn" data-act="more">さらに表示</button></div>
+        </section>
+
+        <section id="v-import" hidden></section>
+
+        <section id="v-export" hidden>
+          <p class="loginfo" id="exInfo"></p>
+          <div class="card tplcard">
+            <h3>研修手帳の様式（Excel）</h3>
+            <p>日本医学放射線学会の様式（形成評価 Ⅳ.経験）に、登録した症例をそのまま書き込んだExcelを出力します。施設名・施設コード・検査日・年齢・性別・疾患名・症例番号などが所定の列に入り、書式や入力規則は元の様式のままです。患者IDは含まれません。</p>
+            <div id="tplFile"></div>
+            <div id="tplInfo"></div>
+            <button class="btn primary" data-act="tpl">様式に書き込んで出力</button>
+          </div>
+          <div class="acts">
+            <div class="card">
+              <h3>Excel（.xlsx）</h3>
+              <p>「集計」シートに3つの専門医の進捗、「症例一覧」シートに全症例を出します（様式ではなく、自分用の一覧です）。</p>
+              <button class="btn primary" data-act="xlsx">Excelで出力</button>
+            </div>
+            <div class="card">
+              <h3>CSV</h3>
+              <p>症例一覧のみ。UTF-8（BOM付き）なので、Excelで開いても文字化けしません。</p>
+              <button class="btn" data-act="csv">CSVで出力</button>
+            </div>
+            <div class="card">
+              <h3>バックアップ（JSON）</h3>
+              <p>すべての症例と設定を1ファイルに保存します。端末の変更や万一に備えて、ときどき保存してください。</p>
+              <button class="btn" data-act="json">バックアップを保存</button>
+              <p id="bkInfo"></p>
+            </div>
+            <div class="card">
+              <h3>バックアップから復元</h3>
+              <p>保存したJSONを読み込みます。症例は追加（同じIDはスキップ）、設定は読み込んだ内容に置き換わります。</p>
+              <label class="btn" for="fRestore">ファイルを選ぶ</label>
+              <input id="fRestore" type="file" accept=".json,application/json" hidden>
+              <div class="restore-box" id="restoreBox"></div>
+            </div>
+          </div>
+          <p class="loginfo" id="storeInfo" style="margin-top:14px"></p>
+        </section>
+
+        <section id="v-settings" hidden></section>
+
+        <section id="v-a-overview" hidden>
+          <div class="filters">
+            <select id="aCohort" aria-label="入学年度で絞り込み"><option value="all">すべての入学年度</option></select>
+            <input id="aq" type="search" placeholder="氏名で絞り込み" aria-label="氏名で絞り込み">
+            <button type="button" class="btn small" data-act="areload">最新の状態に更新</button>
+          </div>
+          <p class="loginfo" id="aInfo"></p>
+          <div class="tablewrap" id="aTable"></div>
+        </section>
+        <section id="v-a-members" hidden></section>
+        <section id="v-a-export" hidden></section>
+
+        <p class="footnote" id="foot"></p>
+      </main>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
